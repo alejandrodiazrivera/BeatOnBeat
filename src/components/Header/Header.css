@@ -1,0 +1,86 @@
+/* Header.css */
+.header {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  padding: 20px 0;
+  z-index: 1000;
+  transition: all 0.4s ease;
+}
+
+.header.scrolled {
+  background: Blue;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  padding: 10px 0;
+}
+
+.header-content {
+  display: flex;
+  align-items: center;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 20px;
+}
+
+/* Logo container */
+.logo {
+  height: 40px;
+  display: flex;
+  align-items: center;
+}
+
+/* SVG Logo styling */
+.logo-svg {
+  height: 100%;
+  width: auto;
+}
+
+.logo-path {
+  fill: white;
+  transition: fill 0.4s ease;
+}
+
+.header.scrolled .logo-path {
+  fill: #333;
+}
+
+/* Dual Images styling (if using image approach) */
+.logo-img {
+  position: absolute;
+  height: 100%;
+  width: auto;
+  transition: opacity 0.4s ease;
+}
+
+.logo-img.visible {
+  opacity: 1;
+}
+
+.logo-img.hidden {
+  opacity: 0;
+}
+
+/* Navigation links */
+.nav-links {
+  margin-left: auto;
+  display: flex;
+  gap: 30px;
+}
+
+.nav-links a {
+  color: black;
+  text-decoration: none;
+  font-weight: 500;
+  transition: color 0.4s ease;
+}
+
+.header.scrolled .nav-links a {
+  color: #333;
+}
+
+
+/* Optional: Hover effects */
+.nav-links a:hover {
+  opacity: 0.8;
+}

@@ -1,0 +1,90 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #888;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #555;
+}
+
+/* Smooth transitions */
+* {
+  transition: background-color 0.2s, border-color 0.2s, box-shadow 0.2s;
+}
+
+/* Focus styles */
+input:focus, textarea:focus, select:focus {
+  @apply outline-none ring-2 ring-blue-200 border-blue-500;
+}
+
+/* Add to your global CSS */
+.loader-container {
+  width: 100px;
+  height: 100px;
+  position: relative;
+}
+
+.loader {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.loader:before {
+  content: '';
+  position: absolute;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  top: 50%;
+  left: 0;
+  transform: translate(-5px, -50%);
+  background: linear-gradient(to right, #fff 50%, #de3500 50%) no-repeat;
+  background-size: 200% auto;
+  background-position: 100% 0;
+  animation: colorBallMoveX 1.5s linear infinite alternate;
+}
+
+.loader:after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 0;
+  transform: translateX(-50%);
+  width: 2px;
+  height: 100%;
+  background: #de3500;
+}
+
+@keyframes colorBallMoveX {
+  0% {
+    background-position: 0% 0;
+    transform: translate(-15px, -50%);
+  }
+  15%, 25% {
+    background-position: 0% 0;
+    transform: translate(0px, -50%);
+  }
+  75%, 85% {
+    background-position: 100% 0;
+    transform: translate(50px, -50%);
+  }
+  100% {
+    background-position: 100% 0;
+    transform: translate(65px, -50%);
+  }
+}
