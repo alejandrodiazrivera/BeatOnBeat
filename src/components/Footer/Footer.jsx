@@ -1,6 +1,6 @@
 import React from 'react';
 import './Footer.css';
-import { FaInstagram, FaTwitter, FaYoutube } from 'react-icons/fa'; // Using React Icons
+import { FaInstagram, FaTwitter, FaYoutube } from 'react-icons/fa';
 
 const Footer = () => {
   return (
@@ -9,7 +9,11 @@ const Footer = () => {
         {/* Brand Column */}
         <div className="footer-section">
           <div className="logo-container">
-            <img src="/logo.png" alt="OnBeat Logo" className="footer-logo" />
+            <img 
+              src="/Logo.png" 
+              alt="OnBeat Logo" 
+              className="footer-logo" 
+            />
             <span className="brand-name">BeOnBeat</span>
           </div>
           <p className="brand-tagline">Your ultimate music experience</p>

@@ -1,5 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 
+declare global {
+  interface Window {
+    webkitAudioContext?: typeof AudioContext;
+  }
+}
+
 export const useAudio = () => {
   const audioContextRef = useRef<AudioContext | null>(null);
   const clickSourcesRef = useRef<(OscillatorNode | AudioBufferSourceNode)[]>([]);
@@ -8,7 +14,7 @@ export const useAudio = () => {
   // Initialize audio context
   useEffect(() => {
     const initAudio = async () => {
-      audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+      audioContextRef.current = new (window.AudioContext || window.webkitAudioContext)();
     };
 
     const handleFirstInteraction = () => {
@@ -33,23 +39,19 @@ export const useAudio = () => {
   }, []);
 
   const playClick = (beat: number) => {
-    if (!audioContextRef.current || isMuted) return; // <-- Added isMuted check here
+    if (!audioContextRef.current || isMuted) return;
     
-    // Create oscillator for each click (like original)
     const oscillator = audioContextRef.current.createOscillator();
     const gainNode = audioContextRef.current.createGain();
     
     oscillator.type = 'sine';
     oscillator.frequency.value = 800;
     
-    // Original volume envelopes
     const now = audioContextRef.current.currentTime;
     if (beat === 1 || beat === 5) {
-      // Downbeat - louder and longer (original values)
       gainNode.gain.setValueAtTime(0.7, now);
       gainNode.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
     } else {
-      // Regular beat (original values)
       gainNode.gain.setValueAtTime(0.5, now);
       gainNode.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
     }
@@ -57,11 +59,9 @@ export const useAudio = () => {
     oscillator.connect(gainNode);
     gainNode.connect(audioContextRef.current.destination);
     
-    // Auto-cleanup
     oscillator.start();
     oscillator.stop(now + (beat === 1 || beat === 5 ? 0.2 : 0.1));
     
-    // Track and clean up sources
     clickSourcesRef.current.push(oscillator);
     oscillator.onended = () => {
       clickSourcesRef.current = clickSourcesRef.current.filter(s => s !== oscillator);
@@ -75,7 +75,7 @@ export const useAudio = () => {
 
   return { 
     playClick,
-    isMuted,        // Expose mute state
-    toggleMute      // Expose toggle function
+    isMuted,
+    toggleMute
   };
 };

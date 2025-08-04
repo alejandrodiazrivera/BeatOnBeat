@@ -17,6 +17,7 @@ interface VideoPlayerProps {
   overlaysVisible: boolean;
   isMetronomeRunning: boolean;
   isPlaying: boolean;
+  onTimeUpdate?: (time: number) => void;
   debug?: boolean;
   aspectRatio?: number;
   fullHeight?: boolean;
@@ -90,6 +91,7 @@ export default function VideoPlayer({
   overlaysVisible,
   isMetronomeRunning,
   isPlaying,
+  onTimeUpdate,
   debug = false,
   aspectRatio = 0.5625,
   fullHeight = false
@@ -205,6 +207,24 @@ export default function VideoPlayer({
       if (debug) console.error('Seek error:', error);
     }
   }, [currentTime, playerReady]);
+
+  // Sync real YouTube time back to parent component
+  useEffect(() => {
+    if (!playerReady || !playerRef.current || !onTimeUpdate) return;
+
+    const syncInterval = setInterval(() => {
+      try {
+        if (playerRef.current) {
+          const realTime = playerRef.current.getCurrentTime();
+          onTimeUpdate(realTime);
+        }
+      } catch (error) {
+        if (debug) console.error('Time sync error:', error);
+      }
+    }, 500);
+
+    return () => clearInterval(syncInterval);
+  }, [playerReady, onTimeUpdate]);
 
   if (apiError) {
     return (

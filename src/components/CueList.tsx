@@ -10,49 +10,7 @@ interface CueListProps {
 }
 
 const CueList: FC<CueListProps> = ({ cuePoints, currentTime, onEdit, onDelete, onJump }) => {
-  // Temporary mock data for testing (remove this in production)
-  const mockCuePoints: CuePoint[] = [
-  {
-    id: '1',
-    time: '00:00:05',
-    title: 'Basic Step Start',
-    note: 'Leader: Forward break (1-2-3), Follower: Back step (5-6-7)',
-    beat: 1, // On the "1" beat (salsa counts in 8)
-  },
-  {
-    id: '2',
-    time: '00:00:15',
-    title: 'Right Turn (Derecha)',
-    note: 'Leader signals → Follower spins 360° under raised arm (beat 3)',
-    beat: 3, // Turn lands on the 3
-  },
-  {
-    id: '3',
-    time: '00:00:30',
-    title: 'Cross Body Lead',
-    note: 'Leader steps aside, guides Follower across (5-6-7 timing)',
-    beat: 5, // Key moment in the 8-count
-  },
-  {
-    id: '4',
-    time: '00:00:45',
-    title: 'Copa (Breakaway)',
-    note: 'Open position → Follower free spins → catch on 7',
-    beat: 7, // Syncopated move
-  },
-  {
-    id: '5',
-    time: '00:01:00',
-    title: 'Shines (Footwork)',
-    note: 'Partners separate: Suzy Q → side taps → sync back on 1',
-    beat: 1, // Restart cycle
-  },
-];
-
-  // Use mock data if cuePoints is empty (for testing)
-  const displayCuePoints = cuePoints.length > 0 ? cuePoints : mockCuePoints;
-
-  if (displayCuePoints.length === 0) {
+  if (cuePoints.length === 0) {
     return (
       <div className="bg-white rounded-xl shadow p-6 mb-6">
         <h3 className="text-xl font-semibold mb-4">Cue Points</h3>
@@ -70,7 +28,7 @@ const CueList: FC<CueListProps> = ({ cuePoints, currentTime, onEdit, onDelete, o
           style={{ height: '300px' }} // Fixed height to show 3 items
         >
           <div className="space-y-4">
-            {displayCuePoints.map((cue) => (
+            {cuePoints.map((cue) => (
               <div key={cue.id} className="border-b border-gray-200 pb-4 last:border-b-0">
                 <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
                   {/* Timestamp Column - Takes 4 columns on desktop */}

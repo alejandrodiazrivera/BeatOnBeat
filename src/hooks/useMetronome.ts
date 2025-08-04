@@ -1,13 +1,18 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 
-type AudioNodeRef = OscillatorNode | AudioBufferSourceNode | null;
+declare global {
+  interface Window {
+    webkitAudioContext?: typeof AudioContext;
+  }
+}
+
+type AudioNodeRef = OscillatorNode | null;
 
 export const useMetronome = (initialBpm = 100) => {
   const [bpm, setBpm] = useState<number>(initialBpm);
   const [isRunning, setIsRunning] = useState<boolean>(false);
   const [currentBeat, setCurrentBeat] = useState<number>(1);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
-  const lastTapRef = useRef<number | null>(null);
   const tapTimesRef = useRef<number[]>([]);
   
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -15,7 +20,7 @@ export const useMetronome = (initialBpm = 100) => {
 
   useEffect(() => {
     const initAudio = async () => {
-      audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+      audioContextRef.current = new (window.AudioContext || window.webkitAudioContext)();
     };
 
     const handleFirstInteraction = () => {

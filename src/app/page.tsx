@@ -21,6 +21,7 @@ export default function Home() {
   const [isPlaying, setIsPlaying] = useState(false);
   const [wasMetronomeRunning, setWasMetronomeRunning] = useState(false);
   const [pausedBeat, setPausedBeat] = useState(1);
+  const [testCueTrigger, setTestCueTrigger] = useState(0);
   
   const {
     bpm,
@@ -101,8 +102,9 @@ export default function Home() {
     const seconds = Math.floor(currentTime % 60).toString().padStart(2, '0');
     const time = `${minutes}:${seconds}`;
     
+    // For new cues, set editingCue to a template object WITHOUT an id
     setEditingCue({
-      id: Date.now().toString(),
+      id: '', // Empty id indicates this is a new cue template
       time,
       title: '',
       note: '',
@@ -111,17 +113,25 @@ export default function Home() {
   };
 
   const handleSubmitCue = (cue: Omit<CuePoint, 'id'>) => {
-    if (editingCue) {
+    console.log('handleSubmitCue called with:', cue);
+    console.log('editingCue:', editingCue);
+    
+    if (editingCue && editingCue.id !== '') {
+      console.log('Editing existing cue');
       setCuePoints(prev => 
         prev.map(c => 
           c.id === editingCue.id ? { ...cue, id: editingCue.id } : c
         )
       );
     } else {
-      setCuePoints(prev => [
-        ...prev,
-        { ...cue, id: Date.now().toString() }
-      ]);
+      console.log('Adding new cue');
+      const newCue = { ...cue, id: Date.now().toString() };
+      console.log('New cue object:', newCue);
+      setCuePoints(prev => {
+        const updated = [...prev, newCue];
+        console.log('Updated cuePoints:', updated);
+        return updated;
+      });
     }
     setEditingCue(null);
     
@@ -190,6 +200,21 @@ export default function Home() {
     setOverlaysVisible(prev => !prev);
   };
 
+  const handleTestCue = () => {
+    console.log('Test cue button clicked!');
+    const testCue = {
+      time: `${Math.floor(currentTime / 60).toString().padStart(2, '0')}:${Math.floor(currentTime % 60).toString().padStart(2, '0')}`,
+      title: 'Test Cue Point',
+      note: 'This is a test cue created from the metronome controls',
+      beat: currentBeat
+    };
+    
+    setCuePoints(prev => [
+      ...prev,
+      { ...testCue, id: Date.now().toString() }
+    ]);
+  };
+
   useEffect(() => {
     return () => {
       stopTimeTracking();
@@ -251,7 +276,8 @@ export default function Home() {
           onStart={startMetronome}
           onStop={stopMetronome}
           onAdjustBpm={adjustBpm}
-          onBpmChange={(newBpm) => adjustBpm(newBpm - bpm)} // Add this line
+          onBpmChange={(newBpm) => adjustBpm(newBpm - bpm)}
+          onTestCue={handleTestCue}
           className="ml-auto"
         />
       </div>

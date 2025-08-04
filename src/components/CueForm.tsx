@@ -46,20 +46,27 @@ const CueForm: FC<CueFormProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    console.log('CueForm handleSubmit called');
+    console.log('Form data:', { time, title, note, beat });
     setIsSubmitting(true);
     
-    if (!time || !title) {
-      alert('Please enter at least a time and title');
+    if (!time) {
+      alert('Please enter a time');
       setIsSubmitting(false);
       return;
     }
     
     try {
-      await onSubmit({ time, title, note, beat });
+      console.log('Calling onSubmit with:', { time, title, note, beat });
+      onSubmit({ time, title, note, beat });
+      console.log('onSubmit call completed successfully');
       if (!editingCue) {
+        console.log('Clearing form fields');
         setTitle('');
         setNote('');
       }
+    } catch (error) {
+      console.error('Error in onSubmit:', error);
     } finally {
       setIsSubmitting(false);
     }
@@ -99,7 +106,10 @@ const CueForm: FC<CueFormProps> = ({
         <div className="flex gap-4">
           {/* Time */}
           <div className="flex-1">
+            <label htmlFor="cue-time" className="sr-only">Time</label>
             <input
+              id="cue-time"
+              name="time"
               type="text"
               value={time}
               onChange={(e) => setTime(e.target.value)}
@@ -111,7 +121,10 @@ const CueForm: FC<CueFormProps> = ({
 
           {/* Title */}
           <div className="flex-[3]">
+            <label htmlFor="cue-title" className="sr-only">Title</label>
             <input
+              id="cue-title"
+              name="title"
               type="text"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
@@ -123,7 +136,10 @@ const CueForm: FC<CueFormProps> = ({
         </div>
 
         {/* Notes */}
+        <label htmlFor="cue-note" className="sr-only">Notes</label>
         <textarea
+          id="cue-note"
+          name="note"
           value={note}
           onChange={(e) => setNote(e.target.value)}
           placeholder="Add detailed notes about this cue point..."
