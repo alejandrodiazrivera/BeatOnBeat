@@ -26,7 +26,7 @@ interface VideoPlayerProps {
 declare global {
   interface Window {
     YT: {
-      Player: new (element: string | HTMLElement, options: any) => YTPlayer;
+      Player: new (element: string | HTMLElement, options: YTPlayerOptions) => YTPlayer;
       PlayerState: {
         PLAYING: number;
         PAUSED: number;
@@ -37,11 +37,24 @@ declare global {
   }
 }
 
+interface YTPlayerOptions {
+  height: string;
+  width: string;
+  videoId: string;
+  playerVars: Record<string, number>;
+  events: {
+    onReady: () => void;
+    onStateChange: (event: { data: number }) => void;
+    onError: () => void;
+  };
+}
+
 const TimeOverlay = memo(({ currentTime }: { currentTime: number }) => (
   <div className="absolute top-2 left-2 bg-black/70 text-white p-1 md:p-2 rounded text-xs md:text-base">
     {new Date(currentTime * 1000).toISOString().substr(11, 8)}
   </div>
 ));
+TimeOverlay.displayName = 'TimeOverlay';
 
 interface BeatOverlayProps {
   currentBeat: number;
@@ -74,6 +87,7 @@ const BeatOverlay = memo(({ currentBeat, isMetronomeRunning }: BeatOverlayProps)
     </div>
   );
 });
+BeatOverlay.displayName = 'BeatOverlay';
 
 const CueOverlay = memo(({ cue }: { cue: CuePoint }) => (
   <div className="absolute bottom-4 left-0 right-0 mx-auto bg-black/70 text-white p-2 md:p-4 rounded max-w-[90%] md:max-w-md text-center">
@@ -82,6 +96,7 @@ const CueOverlay = memo(({ cue }: { cue: CuePoint }) => (
     {cue.note && <p className="mt-1 md:mt-2 italic text-xs md:text-sm">{cue.note}</p>}
   </div>
 ));
+CueOverlay.displayName = 'CueOverlay';
 
 export default function VideoPlayer({
   videoId,
@@ -100,7 +115,6 @@ export default function VideoPlayer({
   const containerRef = useRef<HTMLDivElement>(null);
   const [playerReady, setPlayerReady] = useState(false);
   const [apiError, setApiError] = useState(false);
-  const [thumbnailError, setThumbnailError] = useState(false);
 
   const playerVars = useMemo(() => ({
     autoplay: isPlaying ? 1 : 0,
@@ -184,7 +198,11 @@ export default function VideoPlayer({
 
     const handler = setTimeout(() => {
       try {
-        isPlaying ? playerRef.current?.playVideo() : playerRef.current?.pauseVideo();
+        if (isPlaying) {
+          playerRef.current?.playVideo();
+        } else {
+          playerRef.current?.pauseVideo();
+        }
       } catch (error) {
         if (debug) console.error('Playback error:', error);
       }
@@ -262,7 +280,6 @@ export default function VideoPlayer({
             alt="Video thumbnail"
             className="absolute inset-0 w-full h-full object-cover opacity-50"
             loading="lazy"
-            onError={() => setThumbnailError(true)}
           />
         )}
       </div>

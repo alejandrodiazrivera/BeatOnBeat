@@ -1,4 +1,4 @@
-import { FC, useState, useEffect, useCallback, ChangeEvent } from 'react';
+import { FC, useState, useEffect, ChangeEvent } from 'react';
 import BeatIndicator from './BeatIndicator';
 
 interface MetronomeControlsProps {
@@ -6,11 +6,10 @@ interface MetronomeControlsProps {
   currentBeat: number;
   isRunning: boolean;
   onTapTempo: () => void;
-  onStart: () => void;  // No changes needed to props
+  onStart: () => void;
   onStop: () => void;
   onAdjustBpm: (amount: number) => void;
   onBpmChange: (newBpm: number) => void;
-  onTestCue?: () => void;
   className?: string;
 }
 
@@ -22,8 +21,7 @@ const MetronomeControls: FC<MetronomeControlsProps> = ({
   onStart,
   onStop,
   onAdjustBpm,
-  onBpmChange,
-  onTestCue
+  onBpmChange
 }) => {
   const [inputValue, setInputValue] = useState(bpm.toFixed(2));
 
@@ -114,21 +112,6 @@ const MetronomeControls: FC<MetronomeControlsProps> = ({
           }`}
         >
           Stop
-        </button>
-
-        {/* Test Cue Button */}
-        <button
-          onClick={() => {
-            console.log('Button clicked, onTestCue:', typeof onTestCue);
-            if (onTestCue) {
-              onTestCue();
-            } else {
-              console.log('onTestCue is not defined');
-            }
-          }}
-          className="px-4 py-2 rounded-lg transition bg-green-500 hover:bg-green-600 text-white"
-        >
-          🎯 Test Cue
         </button>
       </div>
     </div>

@@ -21,7 +21,6 @@ export default function Home() {
   const [isPlaying, setIsPlaying] = useState(false);
   const [wasMetronomeRunning, setWasMetronomeRunning] = useState(false);
   const [pausedBeat, setPausedBeat] = useState(1);
-  const [testCueTrigger, setTestCueTrigger] = useState(0);
   
   const {
     bpm,
@@ -200,21 +199,6 @@ export default function Home() {
     setOverlaysVisible(prev => !prev);
   };
 
-  const handleTestCue = () => {
-    console.log('Test cue button clicked!');
-    const testCue = {
-      time: `${Math.floor(currentTime / 60).toString().padStart(2, '0')}:${Math.floor(currentTime % 60).toString().padStart(2, '0')}`,
-      title: 'Test Cue Point',
-      note: 'This is a test cue created from the metronome controls',
-      beat: currentBeat
-    };
-    
-    setCuePoints(prev => [
-      ...prev,
-      { ...testCue, id: Date.now().toString() }
-    ]);
-  };
-
   useEffect(() => {
     return () => {
       stopTimeTracking();
@@ -277,7 +261,6 @@ export default function Home() {
           onStop={stopMetronome}
           onAdjustBpm={adjustBpm}
           onBpmChange={(newBpm) => adjustBpm(newBpm - bpm)}
-          onTestCue={handleTestCue}
           className="ml-auto"
         />
       </div>
