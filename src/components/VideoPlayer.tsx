@@ -61,7 +61,7 @@ interface YTPlayerOptions {
 // Overlay Components (memoized)
 const TimeOverlay = memo(({ currentTime }: { currentTime: number }) => (
   <div className="absolute top-2 left-2 bg-black/70 text-white p-1 md:p-2 rounded text-xs md:text-base">
-    {new Date(currentTime * 1000).toISOString().substr(11, 8)}
+    {new Date(currentTime * 1000).toISOString().substring(11, 19)}
   </div>
 ));
 
