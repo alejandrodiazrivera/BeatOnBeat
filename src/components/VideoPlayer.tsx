@@ -156,20 +156,39 @@ export default function VideoPlayer({
     if (!containerRef.current || !videoId) return;
 
     try {
-      playerRef.current = new window.YT.Player(containerRef.current, {
-        height: '100%',
-        width: '100%',
-        videoId,
-        playerVars,
-        events: {
-          onReady: () => {
-            setPlayerReady(true);
-            debug && console.log('YouTube player ready');
-          },
-          onStateChange: (event) => debug && console.log('Player state:', event.data),
-          onError: () => setApiError(true)
-        }
-      });
+      // Add a small delay to ensure the container is ready
+      setTimeout(() => {
+        if (!containerRef.current) return;
+        
+        playerRef.current = new window.YT.Player(containerRef.current, {
+          height: '100%',
+          width: '100%',
+          videoId,
+          playerVars,
+          events: {
+            onReady: () => {
+              // Additional check to ensure player is fully ready
+              if (playerRef.current && typeof playerRef.current.playVideo === 'function') {
+                setPlayerReady(true);
+                debug && console.log('YouTube player ready and verified');
+              } else {
+                debug && console.warn('YouTube player created but methods not available');
+                setTimeout(() => {
+                  if (playerRef.current && typeof playerRef.current.playVideo === 'function') {
+                    setPlayerReady(true);
+                    debug && console.log('YouTube player methods now available');
+                  }
+                }, 500);
+              }
+            },
+            onStateChange: (event) => debug && console.log('Player state:', event.data),
+            onError: () => {
+              debug && console.error('YouTube player error');
+              setApiError(true);
+            }
+          }
+        });
+      }, 100);
     } catch (error) {
       debug && console.error('YT init error:', error);
       setApiError(true);
@@ -204,7 +223,18 @@ export default function VideoPlayer({
   useEffect(() => {
     if (videoId) {
       if (!playerReady || !playerRef.current) return;
-      isPlaying ? playerRef.current.playVideo() : playerRef.current.pauseVideo();
+      
+      // Add safety check to ensure the player has the required methods
+      try {
+        if (typeof playerRef.current.playVideo === 'function' && typeof playerRef.current.pauseVideo === 'function') {
+          isPlaying ? playerRef.current.playVideo() : playerRef.current.pauseVideo();
+        } else {
+          debug && console.warn('YouTube player methods not available yet');
+        }
+      } catch (error) {
+        debug && console.error('YouTube player control error:', error);
+        setApiError(true);
+      }
     } else if (videoRef.current) {
       isPlaying 
         ? videoRef.current.play().catch(e => debug && console.error('Play error:', e))
@@ -216,40 +246,63 @@ export default function VideoPlayer({
   useEffect(() => {
     if (videoId) {
       if (!playerReady || !playerRef.current) return;
-      if (Math.abs(playerRef.current.getCurrentTime() - currentTime) > 0.5) {
-        playerRef.current.seekTo(currentTime, true);
+      
+      try {
+        if (typeof playerRef.current.getCurrentTime === 'function' && typeof playerRef.current.seekTo === 'function') {
+          if (Math.abs(playerRef.current.getCurrentTime() - currentTime) > 0.5) {
+            playerRef.current.seekTo(currentTime, true);
+          }
+        } else {
+          debug && console.warn('YouTube player seek methods not available yet');
+        }
+      } catch (error) {
+        debug && console.error('YouTube player seek error:', error);
       }
     } else if (videoRef.current) {
       if (Math.abs(videoRef.current.currentTime - currentTime) > 0.5) {
         videoRef.current.currentTime = currentTime;
       }
     }
-  }, [currentTime, playerReady, videoId]);
+  }, [currentTime, playerReady, videoId, debug]);
 
   // Playback speed
   useEffect(() => {
     if (videoId) {
       if (!playerReady || !playerRef.current) return;
-      playerRef.current.setPlaybackRate(playbackSpeed);
+      
+      try {
+        if (typeof playerRef.current.setPlaybackRate === 'function') {
+          playerRef.current.setPlaybackRate(playbackSpeed);
+        } else {
+          debug && console.warn('YouTube player setPlaybackRate method not available yet');
+        }
+      } catch (error) {
+        debug && console.error('YouTube player playback speed error:', error);
+      }
     } else if (videoRef.current) {
       videoRef.current.playbackRate = playbackSpeed;
     }
-  }, [playbackSpeed, playerReady, videoId]);
+  }, [playbackSpeed, playerReady, videoId, debug]);
 
   // Time update sync
   useEffect(() => {
     if (!onTimeUpdate) return;
     
     const syncTime = () => {
-      const time = videoId 
-        ? playerRef.current?.getCurrentTime() || 0
-        : videoRef.current?.currentTime || 0;
-      onTimeUpdate(time);
+      try {
+        const time = videoId 
+          ? (playerRef.current && typeof playerRef.current.getCurrentTime === 'function' 
+              ? playerRef.current.getCurrentTime() : 0)
+          : (videoRef.current?.currentTime || 0);
+        onTimeUpdate(time);
+      } catch (error) {
+        debug && console.error('Time sync error:', error);
+      }
     };
 
     const interval = setInterval(syncTime, 200);
     return () => clearInterval(interval);
-  }, [onTimeUpdate, videoId]);
+  }, [onTimeUpdate, videoId, debug]);
 
   // Cleanup local video URL
   useEffect(() => {
