@@ -325,7 +325,6 @@ export default function Home() {
           <CueForm
             currentTime={currentTime}
             currentBeat={currentBeat}
-            isMetronomeRunning={isMetronomeRunning}
             timeMode={timeMode}
             onSubmit={handleSubmitCue}
             editingCue={editingCue}

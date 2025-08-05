@@ -315,7 +315,7 @@ export default function VideoPlayer({
           )}
         </div>
       )}
-      
+
       {/* Local Video Player */}
       {videoSrc && (
         <video

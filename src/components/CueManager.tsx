@@ -6,11 +6,11 @@ import { CuePoint } from '../types/types';
 interface CueManagerProps {
   currentTime: number;
   currentBeat: number;
-  isMetronomeRunning: boolean;
+  timeMode: '8-beat' | 'flamenco-12';
   testCueTrigger?: number; // Trigger for test cue (increment to trigger)
 }
 
-const CueManager: FC<CueManagerProps> = ({ currentTime, currentBeat, isMetronomeRunning, testCueTrigger }) => {
+const CueManager: FC<CueManagerProps> = ({ currentTime, currentBeat, timeMode, testCueTrigger }) => {
   const [cuePoints, setCuePoints] = useState<CuePoint[]>([]);
   const [editingCue, setEditingCue] = useState<CuePoint | null>(null);
 
@@ -89,7 +89,7 @@ const CueManager: FC<CueManagerProps> = ({ currentTime, currentBeat, isMetronome
         onSubmit={handleSubmit}
         editingCue={editingCue}
         onCancel={handleCancel}
-        isMetronomeRunning={isMetronomeRunning}
+        timeMode={timeMode}
         onPause={handlePause}
       />
       

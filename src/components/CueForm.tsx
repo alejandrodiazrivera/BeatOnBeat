@@ -4,7 +4,6 @@ import { CuePoint } from '../types/types';
 interface CueFormProps {
   currentTime: number;
   currentBeat: number;
-  isMetronomeRunning: boolean;
   timeMode: '8-beat' | 'flamenco-12';
   onSubmit: (cue: Omit<CuePoint, 'id'> | CuePoint) => void;
   editingCue: CuePoint | null;
@@ -15,7 +14,6 @@ interface CueFormProps {
 const CueForm: FC<CueFormProps> = ({ 
   currentTime, 
   currentBeat, 
-  isMetronomeRunning,
   timeMode,
   onSubmit, 
   editingCue,
@@ -62,27 +60,27 @@ const CueForm: FC<CueFormProps> = ({
     setIsDragging(true);
   };
 
-  const handleMouseMove = (e: MouseEvent) => {
-    if (!isDragging) return;
-    
-    setPosition({
-      x: e.clientX - dragOffset.x,
-      y: e.clientY - dragOffset.y
-    });
-  };
-
-  const handleMouseUp = () => {
-    setIsDragging(false);
-  };
-
   useEffect(() => {
+    const handleMouseMoveCallback = (e: MouseEvent) => {
+      if (!isDragging) return;
+      
+      setPosition({
+        x: e.clientX - dragOffset.x,
+        y: e.clientY - dragOffset.y
+      });
+    };
+
+    const handleMouseUpCallback = () => {
+      setIsDragging(false);
+    };
+
     if (isDragging) {
-      document.addEventListener('mousemove', handleMouseMove);
-      document.addEventListener('mouseup', handleMouseUp);
+      document.addEventListener('mousemove', handleMouseMoveCallback);
+      document.addEventListener('mouseup', handleMouseUpCallback);
       
       return () => {
-        document.removeEventListener('mousemove', handleMouseMove);
-        document.removeEventListener('mouseup', handleMouseUp);
+        document.removeEventListener('mousemove', handleMouseMoveCallback);
+        document.removeEventListener('mouseup', handleMouseUpCallback);
       };
     }
   }, [isDragging, dragOffset]);
