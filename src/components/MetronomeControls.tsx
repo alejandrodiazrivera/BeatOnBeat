@@ -15,7 +15,6 @@ interface MetronomeControlsProps {
   getTimeModeConfig: () => {
     beatsPerCycle: number;
     strongBeats: number[];
-    description: string;
   };
   className?: string;
 }
@@ -71,7 +70,7 @@ const MetronomeControls: FC<MetronomeControlsProps> = ({
       <div className="flex flex-wrap items-center gap-3 mt-4">
         <button
           onClick={onTapTempo}
-          className="bg-gray-200 hover:bg-gray-300 px-4 py-2 rounded-lg transition"
+          className="bg-gray-200 hover:bg-gray-300 active:bg-blue-500 active:text-white px-4 py-2 rounded-lg transition"
           title={timeMode === '8-beat' 
             ? 'Tap to set tempo - tap on each quarter note beat' 
             : 'Tap to set tempo - tap on quarter notes OR on flamenco accents (3,6,8,10,12)'

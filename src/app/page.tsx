@@ -21,6 +21,7 @@ export default function Home() {
   const [isPlaying, setIsPlaying] = useState(false);
   const [wasMetronomeRunning, setWasMetronomeRunning] = useState(false);
   const [pausedBeat, setPausedBeat] = useState(1);
+  const [playbackSpeed, setPlaybackSpeed] = useState(1);
   
   const {
     bpm,
@@ -62,9 +63,11 @@ export default function Home() {
     if (resetTime) {
       setCurrentTime(0);
     }
+    // Adjust interval based on playback speed for smoother tracking
+    const interval = playbackSpeed <= 0.5 ? 250 : 500;
     timeUpdateIntervalRef.current = setInterval(() => {
-      setCurrentTime(prev => prev + 0.5);
-    }, 500);
+      setCurrentTime(prev => prev + (interval / 1000) * playbackSpeed);
+    }, interval);
   };
 
   const stopTimeTracking = () => {
@@ -197,7 +200,11 @@ export default function Home() {
   };
 
   const handleSpeedChange = (speed: number) => {
-    console.log(`Playback speed changed to ${speed}x`);
+    setPlaybackSpeed(speed);
+    // Restart time tracking with new speed if currently playing
+    if (isPlaying) {
+      startTimeTracking(false);
+    }
   };
 
   const handleToggleOverlay = () => {
@@ -249,6 +256,26 @@ export default function Home() {
         >
           Load Video
         </button>
+        <label className="bg-green-500 hover:bg-green-600 text-white px-4 py-3 rounded-lg cursor-pointer flex items-center gap-2">
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+          </svg>
+          Upload File
+          <input
+            type="file"
+            accept="video/*"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) {
+                // Clear YouTube URL when uploading a file
+                setVideoUrl('');
+                setVideoId(null);
+                // The VideoPlayer component will handle the file
+              }
+            }}
+            className="hidden"
+          />
+        </label>
       </div>
 
       <div className="mb-4 aspect-video bg-black rounded-lg overflow-hidden">
@@ -260,6 +287,7 @@ export default function Home() {
           overlaysVisible={overlaysVisible}
           isMetronomeRunning={isMetronomeRunning}
           isPlaying={isPlaying}
+          playbackSpeed={playbackSpeed}
         />
       </div>
 
@@ -274,6 +302,7 @@ export default function Home() {
           onToggleOverlay={handleToggleOverlay}
           isPlaying={isPlaying}
           overlaysVisible={overlaysVisible}
+          playbackSpeed={playbackSpeed}
         />
         
         <MetronomeControls
@@ -292,18 +321,17 @@ export default function Home() {
       </div>
 
       {editingCue && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white p-6 rounded-lg max-w-md w-full mx-4">
-            <CueForm
-              currentTime={currentTime}
-              currentBeat={currentBeat}
-              isMetronomeRunning={isMetronomeRunning}
-              onSubmit={handleSubmitCue}
-              editingCue={editingCue}
-              onCancel={() => setEditingCue(null)}
-              onPause={handlePause} 
-            />
-          </div>
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-40 flex items-center justify-center">
+          <CueForm
+            currentTime={currentTime}
+            currentBeat={currentBeat}
+            isMetronomeRunning={isMetronomeRunning}
+            timeMode={timeMode}
+            onSubmit={handleSubmitCue}
+            editingCue={editingCue}
+            onCancel={() => setEditingCue(null)}
+            onPause={handlePause} 
+          />
         </div>
       )}
 

@@ -11,6 +11,7 @@ interface VideoControlsProps {
   onToggleOverlay: () => void;
   isPlaying: boolean;
   overlaysVisible: boolean;
+  playbackSpeed?: number;
 }
 
 const VideoControls: FC<VideoControlsProps> = ({
@@ -22,7 +23,8 @@ const VideoControls: FC<VideoControlsProps> = ({
   onAddCue,
   onToggleOverlay,
   isPlaying,
-  overlaysVisible
+  overlaysVisible,
+  playbackSpeed = 1
 }) => {
   const handleSpeedChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     onSpeedChange(parseFloat(e.target.value));
@@ -71,7 +73,7 @@ const VideoControls: FC<VideoControlsProps> = ({
       <select
         onChange={handleSpeedChange}
         className="p-2 border border-gray-200 rounded-lg"
-        defaultValue="1"
+        value={playbackSpeed}
         aria-label="Playback Speed"
       >
         {[0.5, 0.75, 1, 1.25, 1.5, 2].map(speed => (

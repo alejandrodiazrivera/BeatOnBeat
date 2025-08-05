@@ -1,26 +1,35 @@
-import { useEffect, useRef, useState, useMemo, memo } from 'react';
-import { CuePoint } from '../types/types';
+import { useEffect, useRef, useState, useMemo, memo, useCallback } from 'react';
 
+// Types
 interface YTPlayer {
   playVideo: () => void;
   pauseVideo: () => void;
   seekTo: (seconds: number, allowSeekAhead: boolean) => void;
+  setPlaybackRate: (suggestedRate: number) => void;
   destroy: () => void;
   getCurrentTime: () => number;
 }
 
 interface VideoPlayerProps {
-  videoId: string | null;
+  videoId?: string | null;
   currentTime: number;
   currentBeat: number;
-  currentCue: CuePoint | null;
-  overlaysVisible: boolean;
-  isMetronomeRunning: boolean;
+  currentCue?: CuePoint | null;
+  overlaysVisible?: boolean;
+  isMetronomeRunning?: boolean;
   isPlaying: boolean;
+  playbackSpeed?: number;
   onTimeUpdate?: (time: number) => void;
   debug?: boolean;
   aspectRatio?: number;
   fullHeight?: boolean;
+  allowUploads?: boolean;
+}
+
+interface CuePoint {
+  title: string;
+  time: string;
+  note?: string;
 }
 
 declare global {
@@ -49,73 +58,64 @@ interface YTPlayerOptions {
   };
 }
 
+// Overlay Components (memoized)
 const TimeOverlay = memo(({ currentTime }: { currentTime: number }) => (
   <div className="absolute top-2 left-2 bg-black/70 text-white p-1 md:p-2 rounded text-xs md:text-base">
     {new Date(currentTime * 1000).toISOString().substr(11, 8)}
   </div>
 ));
-TimeOverlay.displayName = 'TimeOverlay';
 
-interface BeatOverlayProps {
-  currentBeat: number;
-  isMetronomeRunning: boolean;
-}
-
-const BeatOverlay = memo(({ currentBeat, isMetronomeRunning }: BeatOverlayProps) => {
-  // Beat color logic
-  const getBeatColor = (beat: number) => {
-    if (!isMetronomeRunning) return 'bg-gray-400';
-    const normalizedBeat = ((beat - 1) % 8) + 1; // Assuming 8-beat pattern
-    if (beat === normalizedBeat) {
-      return (beat === 1 || beat === 5) ? 'bg-purple-600' : 'bg-red-600';
-    }
-    return 'bg-gray-400';
-  };
-
-  return (
-    <div className={`
-      absolute top-2 right-2 
-      flex items-center justify-center 
-      w-6 h-6 md:w-8 md:h-8 
-      rounded-full 
-      text-white font-bold text-xs md:text-sm
-      ${getBeatColor(currentBeat)}
-      ${isMetronomeRunning ? 'animate-pulse' : ''}
-      transition-colors duration-100
-    `}>
-      {currentBeat}
-    </div>
-  );
-});
-BeatOverlay.displayName = 'BeatOverlay';
-
-const CueOverlay = memo(({ cue }: { cue: CuePoint }) => (
-  <div className="absolute bottom-4 left-0 right-0 mx-auto bg-black/70 text-white p-2 md:p-4 rounded max-w-[90%] md:max-w-md text-center">
-    <h3 className="font-bold text-sm md:text-lg">{cue.title}</h3>
-    <p className="text-xs md:text-base">{cue.time}</p>
-    {cue.note && <p className="mt-1 md:mt-2 italic text-xs md:text-sm">{cue.note}</p>}
+const BeatOverlay = memo(({ currentBeat, isMetronomeRunning }: { 
+  currentBeat: number; 
+  isMetronomeRunning?: boolean 
+}) => (
+  <div className={`
+    absolute top-2 right-2 flex items-center justify-center
+    w-6 h-6 md:w-8 md:h-8 rounded-full text-white font-bold text-xs md:text-sm
+    ${isMetronomeRunning ? 'animate-pulse bg-red-600' : 'bg-gray-400'}
+  `}>
+    {currentBeat}
   </div>
 ));
-CueOverlay.displayName = 'CueOverlay';
 
+const CueOverlay = memo(({ cue }: { cue: CuePoint }) => (
+  <div className="absolute bottom-4 left-0 right-0 mx-auto bg-black/70 text-white p-2 md:p-4 rounded max-w-[90%] text-center">
+    <h3 className="font-bold text-sm md:text-lg">{cue.title}</h3>
+    <p className="text-xs md:text-base">{cue.time}</p>
+    {cue.note && <p className="mt-1 italic text-xs md:text-sm">{cue.note}</p>}
+  </div>
+));
+
+// Main Component
 export default function VideoPlayer({
   videoId,
   currentTime,
-  currentBeat,
+  currentBeat = 1,
   currentCue,
-  overlaysVisible,
-  isMetronomeRunning,
+  overlaysVisible = true,
+  isMetronomeRunning = false,
   isPlaying,
+  playbackSpeed = 1,
   onTimeUpdate,
   debug = false,
-  aspectRatio = 0.5625,
-  fullHeight = false
+  aspectRatio = 16/9,
+  fullHeight = false,
+  allowUploads = true
 }: VideoPlayerProps) {
+  // Refs
   const playerRef = useRef<YTPlayer | null>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  
+  // State
   const [playerReady, setPlayerReady] = useState(false);
   const [apiError, setApiError] = useState(false);
+  const [videoFile, setVideoFile] = useState<File | null>(null);
+  const [videoSrc, setVideoSrc] = useState<string | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const [userInteracted, setUserInteracted] = useState(false);
 
+  // Memoized player vars
   const playerVars = useMemo(() => ({
     autoplay: isPlaying ? 1 : 0,
     controls: 0,
@@ -124,37 +124,35 @@ export default function VideoPlayer({
     modestbranding: 1
   }), [isPlaying]);
 
-  // Load YouTube API
-  useEffect(() => {
-    if (!videoId) return;
-
-    if (window.YT) {
-      initializePlayer();
-      return;
+  // Handle file upload
+  const handleFileUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file && file.type.startsWith('video/')) {
+      setIsUploading(true);
+      setTimeout(() => { // Simulate processing
+        setVideoFile(file);
+        setVideoSrc(URL.createObjectURL(file));
+        cleanupPlayer();
+        setIsUploading(false);
+      }, 300);
     }
+  }, []);
 
-    const timeout = setTimeout(() => {
-      if (!window.YT) setApiError(true);
-    }, 5000);
+  // Cleanup YouTube player
+  const cleanupPlayer = useCallback(() => {
+    if (playerRef.current) {
+      try {
+        playerRef.current.destroy();
+      } catch (error) {
+        debug && console.error('Cleanup error:', error);
+      }
+      playerRef.current = null;
+    }
+    setPlayerReady(false);
+  }, [debug]);
 
-    const tag = document.createElement('script');
-    tag.src = "https://www.youtube.com/iframe_api";
-    tag.id = 'youtube-iframe-script';
-    tag.async = true;
-
-    window.onYouTubeIframeAPIReady = initializePlayer;
-
-    document.body.appendChild(tag);
-
-    return () => {
-      cleanupPlayer();
-      clearTimeout(timeout);
-      document.getElementById('youtube-iframe-script')?.remove();
-      window.onYouTubeIframeAPIReady = null;
-    };
-  }, [videoId]);
-
-  const initializePlayer = () => {
+  // Initialize YouTube player
+  const initializePlayer = useCallback(() => {
     if (!containerRef.current || !videoId) return;
 
     try {
@@ -166,140 +164,218 @@ export default function VideoPlayer({
         events: {
           onReady: () => {
             setPlayerReady(true);
-            if (debug) console.log('Player ready');
+            debug && console.log('YouTube player ready');
           },
-          onStateChange: (event: { data: number }) => {
-            if (debug) console.log('Player state:', event.data);
-          },
+          onStateChange: (event) => debug && console.log('Player state:', event.data),
           onError: () => setApiError(true)
         }
       });
     } catch (error) {
-      if (debug) console.error('Player initialization failed:', error);
+      debug && console.error('YT init error:', error);
       setApiError(true);
     }
-  };
+  }, [videoId, playerVars, debug]);
 
-  const cleanupPlayer = () => {
-    if (playerRef.current) {
-      try {
-        playerRef.current.destroy();
-      } catch (error) {
-        if (debug) console.error('Player cleanup failed:', error);
-      }
-      playerRef.current = null;
+  // Load YouTube API
+  useEffect(() => {
+    if (!videoId) return;
+
+    if (window.YT) {
+      initializePlayer();
+      return;
     }
-    setPlayerReady(false);
-  };
 
-  // Handle play/pause with debouncing
+    const tag = document.createElement('script');
+    tag.src = "https://www.youtube.com/iframe_api";
+    tag.async = true;
+    tag.id = 'youtube-iframe-script';
+
+    window.onYouTubeIframeAPIReady = initializePlayer;
+    document.body.appendChild(tag);
+
+    return () => {
+      cleanupPlayer();
+      document.getElementById('youtube-iframe-script')?.remove();
+      window.onYouTubeIframeAPIReady = null;
+    };
+  }, [videoId, initializePlayer, cleanupPlayer]);
+
+  // Play/pause control
   useEffect(() => {
-    if (!playerReady || !playerRef.current) return;
+    if (videoId) {
+      if (!playerReady || !playerRef.current) return;
+      isPlaying ? playerRef.current.playVideo() : playerRef.current.pauseVideo();
+    } else if (videoRef.current) {
+      isPlaying 
+        ? videoRef.current.play().catch(e => debug && console.error('Play error:', e))
+        : videoRef.current.pause();
+    }
+  }, [isPlaying, playerReady, videoId, debug]);
 
-    const handler = setTimeout(() => {
-      try {
-        if (isPlaying) {
-          playerRef.current?.playVideo();
-        } else {
-          playerRef.current?.pauseVideo();
-        }
-      } catch (error) {
-        if (debug) console.error('Playback error:', error);
-      }
-    }, 100);
-
-    return () => clearTimeout(handler);
-  }, [isPlaying, playerReady]);
-
-  // Handle seeking with threshold
+  // Seek control
   useEffect(() => {
-    if (!playerReady || !playerRef.current) return;
-
-    try {
-      const playerTime = playerRef.current.getCurrentTime();
-      if (Math.abs(playerTime - currentTime) > 0.5) {
+    if (videoId) {
+      if (!playerReady || !playerRef.current) return;
+      if (Math.abs(playerRef.current.getCurrentTime() - currentTime) > 0.5) {
         playerRef.current.seekTo(currentTime, true);
-        if (debug) console.log('Seeking to:', currentTime);
       }
-    } catch (error) {
-      if (debug) console.error('Seek error:', error);
+    } else if (videoRef.current) {
+      if (Math.abs(videoRef.current.currentTime - currentTime) > 0.5) {
+        videoRef.current.currentTime = currentTime;
+      }
     }
-  }, [currentTime, playerReady]);
+  }, [currentTime, playerReady, videoId]);
 
-  // Sync real YouTube time back to parent component
+  // Playback speed
   useEffect(() => {
-    if (!playerReady || !playerRef.current || !onTimeUpdate) return;
+    if (videoId) {
+      if (!playerReady || !playerRef.current) return;
+      playerRef.current.setPlaybackRate(playbackSpeed);
+    } else if (videoRef.current) {
+      videoRef.current.playbackRate = playbackSpeed;
+    }
+  }, [playbackSpeed, playerReady, videoId]);
 
-    const syncInterval = setInterval(() => {
-      try {
-        if (playerRef.current) {
-          const realTime = playerRef.current.getCurrentTime();
-          onTimeUpdate(realTime);
-        }
-      } catch (error) {
-        if (debug) console.error('Time sync error:', error);
-      }
-    }, 500);
+  // Time update sync
+  useEffect(() => {
+    if (!onTimeUpdate) return;
+    
+    const syncTime = () => {
+      const time = videoId 
+        ? playerRef.current?.getCurrentTime() || 0
+        : videoRef.current?.currentTime || 0;
+      onTimeUpdate(time);
+    };
 
-    return () => clearInterval(syncInterval);
-  }, [playerReady, onTimeUpdate]);
+    const interval = setInterval(syncTime, 200);
+    return () => clearInterval(interval);
+  }, [onTimeUpdate, videoId]);
 
-  if (apiError) {
-    return (
-      <div className="aspect-video bg-gray-800 flex items-center justify-center text-white p-4 text-center">
-        <div>
-          <h3 className="font-bold mb-2">YouTube Player Failed to Load</h3>
-          <button 
-            onClick={() => window.location.reload()}
-            className="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded"
-          >
-            Retry
-          </button>
-        </div>
-      </div>
-    );
-  }
+  // Cleanup local video URL
+  useEffect(() => {
+    return () => {
+      if (videoSrc) URL.revokeObjectURL(videoSrc);
+    };
+  }, [videoSrc]);
 
+  // Render
   return (
     <div 
-      className={`relative w-full bg-gray-900 ${fullHeight ? 'h-screen' : ''}`}
-      style={!fullHeight ? { paddingBottom: `${aspectRatio * 100}%` } : undefined}
-      role="region" 
-      aria-label="Video player"
+      className={`relative w-full bg-black ${fullHeight ? 'h-screen' : ''}`}
+      style={!fullHeight ? { paddingBottom: `${100/aspectRatio}%` } : {}}
     >
-      {/* Player container */}
-      <div 
-        ref={containerRef} 
-        className="absolute top-0 left-0 w-full h-full"
-        aria-live="polite"
-        aria-atomic="true"
-      >
-        {!playerReady && videoId && (
-          <img
-            src={`https://img.youtube.com/vi/${videoId}/mqdefault.jpg`}
-            alt="Video thumbnail"
-            className="absolute inset-0 w-full h-full object-cover opacity-50"
-            loading="lazy"
-          />
-        )}
-      </div>
+      {/* Upload Area (when no video loaded) */}
+      {allowUploads && !videoId && !videoSrc && (
+        <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 p-4">
+          <label className={`
+            flex flex-col items-center justify-center 
+            w-full h-full border-2 border-dashed rounded-lg 
+            hover:bg-gray-900/50 transition-colors cursor-pointer
+            ${isUploading ? 'border-blue-500' : 'border-gray-600'}
+          `}>
+            <input 
+              type="file" 
+              accept="video/*" 
+              onChange={handleFileUpload}
+              className="hidden" 
+              disabled={isUploading}
+            />
+            <div className="text-center p-6">
+              {isUploading ? (
+                <>
+                  <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500 mx-auto mb-3"></div>
+                  <p className="text-blue-400">Processing video...</p>
+                </>
+              ) : (
+                <>
+                  <svg className="w-12 h-12 mx-auto text-gray-400 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                  </svg>
+                  <p className="text-gray-300 font-medium">Drag & drop a video file or click to browse</p>
+                  <p className="text-gray-500 text-sm mt-1">Supports MP4, WebM, MOV</p>
+                </>
+              )}
+            </div>
+          </label>
+        </div>
+      )}
 
-      {/* Loading indicator */}
-      {!playerReady && !apiError && (
+      {/* YouTube Player */}
+      {videoId && (
+        <div 
+          ref={containerRef} 
+          className="absolute inset-0"
+        >
+          {!playerReady && (
+            <img
+              src={`https://img.youtube.com/vi/${videoId}/mqdefault.jpg`}
+              alt="Video thumbnail"
+              className="absolute inset-0 w-full h-full object-cover opacity-50"
+            />
+          )}
+        </div>
+      )}
+      
+      {/* Local Video Player */}
+      {videoSrc && (
+        <video
+          ref={videoRef}
+          src={videoSrc}
+          className="absolute inset-0 w-full h-full object-contain bg-black cursor-pointer"
+          playsInline
+          muted={!userInteracted}
+          onPlay={() => setUserInteracted(true)}
+          onClick={() => {
+            setUserInteracted(true);
+            if (videoRef.current) {
+              videoRef.current.muted = false;
+            }
+          }}
+          controls={userInteracted}
+        />
+      )}
+
+      {/* Unmute indicator for local videos */}
+      {videoSrc && !userInteracted && (
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+          <div className="bg-black/70 text-white px-4 py-2 rounded-lg flex items-center gap-2">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" clipRule="evenodd" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" />
+            </svg>
+            <span className="text-sm">Click to enable sound</span>
+          </div>
+        </div>
+      )}
+
+      {/* Loading Indicator */}
+      {videoId && !playerReady && !apiError && (
         <div className="absolute inset-0 flex items-center justify-center">
           <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-white"></div>
         </div>
       )}
 
+      {/* Error State */}
+      {apiError && (
+        <div className="absolute inset-0 flex items-center justify-center bg-red-900/50 text-white p-4">
+          <div className="text-center">
+            <h3 className="font-bold mb-2">Player Error</h3>
+            <button 
+              onClick={() => window.location.reload()}
+              className="bg-white text-black px-4 py-2 rounded hover:bg-gray-200"
+            >
+              Reload Player
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Overlays */}
-      {overlaysVisible && playerReady && (
+      {overlaysVisible && (playerReady || videoSrc) && (
         <div className="absolute inset-0 pointer-events-none">
           <TimeOverlay currentTime={currentTime} />
           {isMetronomeRunning && (
-            <BeatOverlay 
-              currentBeat={currentBeat} 
-              isMetronomeRunning={isMetronomeRunning} 
-            />
+            <BeatOverlay currentBeat={currentBeat} isMetronomeRunning={isMetronomeRunning} />
           )}
           {currentCue && <CueOverlay cue={currentCue} />}
         </div>
@@ -307,3 +383,8 @@ export default function VideoPlayer({
     </div>
   );
 }
+
+// Display names for React DevTools
+TimeOverlay.displayName = 'TimeOverlay';
+BeatOverlay.displayName = 'BeatOverlay';
+CueOverlay.displayName = 'CueOverlay';

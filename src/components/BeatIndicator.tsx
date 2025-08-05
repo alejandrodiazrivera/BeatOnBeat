@@ -7,7 +7,6 @@ interface BeatIndicatorProps {
   getTimeModeConfig: () => {
     beatsPerCycle: number;
     strongBeats: number[];
-    description: string;
   };
 }
 
@@ -56,9 +55,6 @@ const BeatIndicator: FC<BeatIndicatorProps> = ({
   if (timeMode === 'flamenco-12') {
     return (
       <div className="flex flex-col gap-2">
-        <div className="text-xs font-semibold text-center text-gray-600">
-          {config.description}
-        </div>
         <div className="grid grid-cols-6 gap-1">
           {beats.map(beat => (
             <div
@@ -77,9 +73,6 @@ const BeatIndicator: FC<BeatIndicatorProps> = ({
 
   return (
     <div className="flex flex-col gap-2">
-      <div className="text-xs font-semibold text-center text-gray-600">
-        {config.description}
-      </div>
       <div className="flex items-center gap-1 flex-wrap justify-center">
         {beats.map(beat => (
           <div

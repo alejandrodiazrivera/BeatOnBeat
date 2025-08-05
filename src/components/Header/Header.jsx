@@ -27,14 +27,14 @@ const Header = () => {
                 className={`transition-all duration-400 ${isScrolled ? 'opacity-100' : 'opacity-90'}`}
               />
             </div>
-            <span className={`text-2xl font-bold ${isScrolled ? 'text-gray-900' : 'text-white'}`}>
+            <span className={`text-2xl font-bold ${isScrolled ? 'text-gray-900' : 'text-gray-900'}`}>
               @AlexDRivera
             </span>
           </a>
         </div>
 
 
-        <nav className="hidden md:flex items-center space-x-8">
+        <nav className={`${isScrolled ? 'flex' : 'hidden'} items-center space-x-8`}>
           <a href="/" className={`font-medium transition-colors ${isScrolled ? 'text-gray-800 hover:text-gray-600' : 'text-white hover:text-gray-200'}`}>
             Home
           </a>

@@ -1,10 +1,11 @@
-import { FC, useState, useEffect } from 'react';
+import { FC, useState, useEffect, useRef } from 'react';
 import { CuePoint } from '../types/types';
 
 interface CueFormProps {
   currentTime: number;
   currentBeat: number;
   isMetronomeRunning: boolean;
+  timeMode: '8-beat' | 'flamenco-12';
   onSubmit: (cue: Omit<CuePoint, 'id'> | CuePoint) => void;
   editingCue: CuePoint | null;
   onCancel: () => void;
@@ -15,6 +16,7 @@ const CueForm: FC<CueFormProps> = ({
   currentTime, 
   currentBeat, 
   isMetronomeRunning,
+  timeMode,
   onSubmit, 
   editingCue,
   onCancel,
@@ -25,6 +27,10 @@ const CueForm: FC<CueFormProps> = ({
   const [note, setNote] = useState('');
   const [beat, setBeat] = useState<number | undefined>();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+  const [position, setPosition] = useState({ x: 0, y: 0 });
+  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
+  const formRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     onPause();
@@ -43,6 +49,43 @@ const CueForm: FC<CueFormProps> = ({
       setBeat(currentBeat); // Always set the beat, regardless of metronome state
     }
   }, [editingCue, onPause, currentTime, currentBeat]);
+
+  // Drag handlers
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (!formRef.current) return;
+    
+    const rect = formRef.current.getBoundingClientRect();
+    setDragOffset({
+      x: e.clientX - rect.left,
+      y: e.clientY - rect.top
+    });
+    setIsDragging(true);
+  };
+
+  const handleMouseMove = (e: MouseEvent) => {
+    if (!isDragging) return;
+    
+    setPosition({
+      x: e.clientX - dragOffset.x,
+      y: e.clientY - dragOffset.y
+    });
+  };
+
+  const handleMouseUp = () => {
+    setIsDragging(false);
+  };
+
+  useEffect(() => {
+    if (isDragging) {
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+      
+      return () => {
+        document.removeEventListener('mousemove', handleMouseMove);
+        document.removeEventListener('mouseup', handleMouseUp);
+      };
+    }
+  }, [isDragging, dragOffset]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -71,37 +114,68 @@ const CueForm: FC<CueFormProps> = ({
       setIsSubmitting(false);
     }
   };
-  const getBeatColor = () => {
-    // Beats 1 and 5 are purple, all others are red
-    return currentBeat === 1 || currentBeat === 5 
-      ? 'bg-purple-600' 
-      : 'bg-red-600';
+  const getBeatColor = (beatValue: number) => {
+    if (timeMode === 'flamenco-12') {
+      // Flamenco accents: 3, 6, 8, 10, 12 are red (accented), others are orange
+      return [3, 6, 8, 10, 12].includes(beatValue) ? 'bg-red-600' : 'bg-orange-500';
+    } else {
+      // 8-beat mode: Beats 1 and 5 are purple, all others are red
+      return beatValue === 1 || beatValue === 5 ? 'bg-purple-600' : 'bg-red-600';
+    }
+  };
+
+  const handleBeatClick = (e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent any event bubbling
+    // Dynamic max beat based on time mode
+    const maxBeat = timeMode === 'flamenco-12' ? 12 : 8;
+    const nextBeat = beat && beat < maxBeat ? beat + 1 : 1;
+    setBeat(nextBeat);
   };
 
   return (
-    <div className="mb-6">
-      {/* Header with beat indicator always visible */}
-      <div className="flex items-center gap-3 mb-4">
-        <div className={`rounded-full h-10 w-10 flex items-center justify-center text-white font-bold ${getBeatColor()}`}>
-          {currentBeat}
+    <div 
+      ref={formRef}
+      className={`mb-6 bg-white rounded-xl shadow-lg border max-w-md w-full mx-4 ${isDragging ? 'cursor-grabbing' : 'cursor-grab'}`}
+      style={{
+        position: 'fixed',
+        left: position.x === 0 && position.y === 0 ? '50%' : position.x,
+        top: position.y === 0 && position.y === 0 ? '50%' : position.y,
+        transform: position.x === 0 && position.y === 0 ? 'translate(-50%, -50%)' : 'none',
+        zIndex: 1000,
+      }}
+    >
+      {/* Header with beat indicator */}
+      <div 
+        className="flex items-center gap-3 mb-4 p-4 pb-0"
+        onMouseDown={handleMouseDown}
+      >
+        <div 
+          className={`rounded-full h-10 w-10 flex items-center justify-center text-white font-bold cursor-pointer hover:scale-110 transition-transform ${getBeatColor(beat || 1)}`}
+          onClick={handleBeatClick}
+          title="Click to change beat number"
+        >
+          {beat || 1}
         </div>
         <div className="flex-1 flex items-center justify-between">
           <h3 className="text-xl font-bold text-gray-800">
             {editingCue ? 'Edit Cue Point' : '➕ Add New Cue Point'}
           </h3>
-          {editingCue && (
-            <button
-              onClick={onCancel}
-              className="text-gray-400 hover:text-gray-600 transition"
-              aria-label="Close"
-            >
-              ✕
-            </button>
-          )}
+          <div className="flex items-center gap-2">
+            {editingCue && (
+              <button
+                onClick={onCancel}
+                className="text-gray-400 hover:text-gray-600 transition ml-2"
+                aria-label="Close"
+              >
+                ✕
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <div className="px-4 pb-4">
+        <form onSubmit={handleSubmit} className="space-y-4">
         {/* Top row - Time and Title */}
         <div className="flex gap-4">
           {/* Time */}
@@ -182,6 +256,7 @@ const CueForm: FC<CueFormProps> = ({
           </button>
         </div>
       </form>
+      </div>
     </div>
   );
 };
