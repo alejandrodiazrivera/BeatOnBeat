@@ -26,11 +26,14 @@ export default function Home() {
     bpm,
     currentBeat,
     isRunning: isMetronomeRunning,
+    timeMode,
     tapTempo,
     start: startMetronome,
     stop: stopMetronome,
     adjustBpm,
-    setCurrentBeat: setMetronomeBeat
+    setCurrentBeat: setMetronomeBeat,
+    setTimeMode,
+    getTimeModeConfig
   } = useMetronome();
 
   const timeUpdateIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -48,15 +51,17 @@ export default function Home() {
     const id = extractVideoId(videoUrl);
     if (id) {
       setVideoId(id);
-      startTimeTracking();
+      startTimeTracking(true); // Reset time when loading new video
     } else {
       alert('Please enter a valid YouTube URL');
     }
   };
 
-  const startTimeTracking = () => {
+  const startTimeTracking = (resetTime = false) => {
     stopTimeTracking();
-    setCurrentTime(0);
+    if (resetTime) {
+      setCurrentTime(0);
+    }
     timeUpdateIntervalRef.current = setInterval(() => {
       setCurrentTime(prev => prev + 0.5);
     }, 500);
@@ -168,7 +173,7 @@ export default function Home() {
 
   const handlePlay = () => {
     setIsPlaying(true);
-    startTimeTracking();
+    startTimeTracking(); // Resume from current time, don't reset
   };
 
   const handlePause = () => {
@@ -197,6 +202,25 @@ export default function Home() {
 
   const handleToggleOverlay = () => {
     setOverlaysVisible(prev => !prev);
+  };
+
+  const handleStartMetronome = () => {
+    // Stop current metronome if running
+    if (isMetronomeRunning) {
+      stopMetronome();
+    }
+    
+    if (timeMode === 'flamenco-12') {
+      // For flamenco, start ON beat 12 (flamenco technique)
+      setMetronomeBeat(12);
+    } else {
+      // For 8-beat, set to last beat so first tick will be beat 1
+      const config = getTimeModeConfig();
+      setMetronomeBeat(config.beatsPerCycle);
+    }
+    
+    // Start metronome
+    startMetronome();
   };
 
   useEffect(() => {
@@ -256,22 +280,16 @@ export default function Home() {
           bpm={bpm}
           currentBeat={currentBeat}
           isRunning={isMetronomeRunning}
+          timeMode={timeMode}
           onTapTempo={tapTempo}
-          onStart={startMetronome}
-          onStop={stopMetronome}
+          onStart={handleStartMetronome}
           onAdjustBpm={adjustBpm}
           onBpmChange={(newBpm) => adjustBpm(newBpm - bpm)}
+          onTimeModeChange={setTimeMode}
+          getTimeModeConfig={getTimeModeConfig}
           className="ml-auto"
         />
       </div>
-
-      {currentCue && (
-        <div className="mb-4 p-4 bg-blue-50 border-l-4 border-blue-500 rounded-r">
-          <h3 className="font-bold">Current Section:</h3>
-          <p>{currentCue.title} @ {currentCue.time}</p>
-          {currentCue.note && <p className="mt-2 italic">{currentCue.note}</p>}
-        </div>
-      )}
 
       {editingCue && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">

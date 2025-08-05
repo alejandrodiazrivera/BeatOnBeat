@@ -61,21 +61,24 @@ const CueList: FC<CueListProps> = ({ cuePoints, currentTime, onEdit, onDelete, o
                     <div className="flex gap-2 flex-wrap">
                       <button
                         onClick={() => onJump(cue.time)}
-                        className="bg-gray-200 hover:bg-gray-300 text-gray-800 px-2 py-1 rounded text-xs transition"
+                        className="bg-gray-200 hover:bg-gray-300 text-gray-800 w-8 h-8 rounded flex items-center justify-center transition"
+                        title="Jump to timestamp"
                       >
-                        Jump
+                        ▶
                       </button>
                       <button
                         onClick={() => onEdit(cue)}
-                        className="bg-yellow-500 hover:bg-yellow-600 text-white px-2 py-1 rounded text-xs transition"
+                        className="bg-yellow-500 hover:bg-yellow-600 text-white w-8 h-8 rounded flex items-center justify-center transition"
+                        title="Edit cue"
                       >
-                        Edit
+                        ✎
                       </button>
                       <button
                         onClick={() => onDelete(cue.id)}
-                        className="bg-red-500 hover:bg-red-600 text-white px-2 py-1 rounded text-xs transition"
+                        className="bg-red-500 hover:bg-red-600 text-white w-8 h-8 rounded flex items-center justify-center transition"
+                        title="Delete cue"
                       >
-                        Delete
+                        ✕
                       </button>
                     </div>
                   </div>

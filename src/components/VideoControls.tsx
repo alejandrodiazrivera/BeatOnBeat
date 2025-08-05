@@ -1,4 +1,5 @@
 import { FC } from 'react';
+import { Layers } from 'lucide-react';
 
 interface VideoControlsProps {
   onPlay: () => void;
@@ -89,10 +90,15 @@ const VideoControls: FC<VideoControlsProps> = ({
 
       <button
         onClick={onToggleOverlay}
-        className="p-2 bg-gray-200 hover:bg-gray-300 rounded-lg ml-auto flex items-center gap-2"
+        className={`p-2 rounded-lg ml-auto flex items-center justify-center transition-colors duration-200 ${
+          overlaysVisible 
+            ? 'bg-blue-500 hover:bg-blue-600 text-white' 
+            : 'bg-gray-200 hover:bg-gray-300 text-gray-600'
+        }`}
         aria-label="Toggle Overlays"
+        title={overlaysVisible ? 'Hide Overlays' : 'Show Overlays'}
       >
-        {overlaysVisible ? 'Hide Overlays ⚪' : 'Show Overlays 🟢'}
+        <Layers size={20} />
       </button>
     </div>
   );
