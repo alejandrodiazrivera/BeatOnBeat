@@ -180,31 +180,64 @@ export default function VideoPlayer({
     if (!containerRef.current || !videoId) return;
 
     try {
+      // Suppress YouTube API cross-origin warnings in development
+      const originalConsoleWarn = console.warn;
+      const originalConsoleError = console.error;
+      
+      const suppressYouTubeWarnings = (message: any, ...args: any[]) => {
+        const messageStr = String(message);
+        if (messageStr.includes('postMessage') && 
+            messageStr.includes('youtube.com') && 
+            messageStr.includes('localhost')) {
+          return; // Suppress YouTube cross-origin warnings in development
+        }
+        originalConsoleWarn(message, ...args);
+      };
+      
+      const suppressYouTubeErrors = (message: any, ...args: any[]) => {
+        const messageStr = String(message);
+        if (messageStr.includes('postMessage') && 
+            messageStr.includes('youtube.com') && 
+            messageStr.includes('localhost')) {
+          return; // Suppress YouTube cross-origin errors in development
+        }
+        originalConsoleError(message, ...args);
+      };
+      
+      // Temporarily override console methods
+      console.warn = suppressYouTubeWarnings;
+      console.error = suppressYouTubeErrors;
+      
       // Add a small delay to ensure the container is ready
       setTimeout(() => {
         if (!containerRef.current) return;
         
-        playerRef.current = new window.YT.Player(containerRef.current, {
-          height: '100%',
-          width: '100%',
-          videoId,
-          playerVars,
-          events: {
-            onReady: () => {
-              // Additional check to ensure player is fully ready
-              if (playerRef.current && typeof playerRef.current.playVideo === 'function') {
-                setPlayerReady(true);
-                if (debug) console.log('YouTube player ready and verified');
-              } else {
-                if (debug) console.warn('YouTube player created but methods not available');
-                setTimeout(() => {
-                  if (playerRef.current && typeof playerRef.current.playVideo === 'function') {
-                    setPlayerReady(true);
-                    if (debug) console.log('YouTube player methods now available');
-                  }
-                }, 500);
-              }
-            },
+        try {
+          playerRef.current = new window.YT.Player(containerRef.current, {
+            height: '100%',
+            width: '100%',
+            videoId,
+            playerVars,
+            events: {
+              onReady: () => {
+                // Restore original console methods
+                console.warn = originalConsoleWarn;
+                console.error = originalConsoleError;
+                
+                // Additional check to ensure player is fully ready
+                if (playerRef.current && typeof playerRef.current.playVideo === 'function') {
+                  setPlayerReady(true);
+                  if (debug) console.log('YouTube player ready and verified');
+                } else {
+                  if (debug) console.warn('YouTube player created but methods not available');
+                  setTimeout(() => {
+                    if (playerRef.current && typeof playerRef.current.playVideo === 'function') {
+                      setPlayerReady(true);
+                      if (debug) console.log('YouTube player methods now available');
+                    }
+                  }, 500);
+                }
+              },
             onStateChange: (event) => {
               if (debug) console.log('Player state:', event.data);
               // Sync YouTube player state with React state
@@ -234,11 +267,23 @@ export default function VideoPlayer({
               }
             },
             onError: () => {
+              // Restore original console methods in case of error
+              console.warn = originalConsoleWarn;
+              console.error = originalConsoleError;
+              
               if (debug) console.error('YouTube player error');
               setApiError(true);
             }
           }
         });
+        } catch (playerError) {
+          // Restore original console methods in case of player creation error
+          console.warn = originalConsoleWarn;
+          console.error = originalConsoleError;
+          
+          if (debug) console.error('YT player creation error:', playerError);
+          setApiError(true);
+        }
       }, 100);
     } catch (error) {
       if (debug) console.error('YT init error:', error);

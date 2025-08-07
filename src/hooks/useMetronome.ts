@@ -14,8 +14,10 @@ export const useMetronome = (initialBpm = 100) => {
   const [isRunning, setIsRunning] = useState<boolean>(false);
   const [currentBeat, setCurrentBeat] = useState<number>(1);
   const [timeMode, setTimeMode] = useState<TimeMode>('8-beat');
+  const [isMuted, setIsMuted] = useState<boolean>(false);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const tapTimesRef = useRef<number[]>([]);
+  const startTimeRef = useRef<number>(0); // Track when metronome started
   
   const audioContextRef = useRef<AudioContext | null>(null);
   const clickSourcesRef = useRef<AudioNodeRef[]>([]);
@@ -72,7 +74,7 @@ export const useMetronome = (initialBpm = 100) => {
   }, []);
 
   const playClick = useCallback((beat: number) => {
-    if (!audioContextRef.current) return;
+    if (!audioContextRef.current || isMuted) return;
     
     const config = getTimeModeConfig(timeMode);
     const oscillator = audioContextRef.current.createOscillator();
@@ -115,13 +117,49 @@ export const useMetronome = (initialBpm = 100) => {
       );
       gainNode.disconnect();
     };
-  }, [timeMode]);
+  }, [timeMode, isMuted]);
+
+  const toggleMute = useCallback(() => {
+    setIsMuted(prev => !prev);
+  }, []);
 
   const start = useCallback(() => {
-    if (isRunning) return;
+    // Prevent multiple timers - always clear existing timer first
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+    
+    // If already running, stop first to prevent double timers
+    if (isRunning) {
+      setIsRunning(false);
+      // Use setTimeout to ensure state update completes before restarting
+      setTimeout(() => {
+        setIsRunning(true);
+        startTimeRef.current = Date.now();
+        
+        const config = getTimeModeConfig(timeMode);
+        const startBeat = (timeMode === 'flamenco-12' && currentBeat === 12) ? 12 : 1;
+        if (startBeat === 1) {
+          setCurrentBeat(1);
+        }
+        playClick(startBeat);
+        
+        const interval = 60000 / bpm;
+        timerRef.current = setInterval(() => {
+          setCurrentBeat(prev => {
+            const nextBeat = prev === config.beatsPerCycle ? 1 : prev + 1;
+            playClick(nextBeat);
+            return nextBeat;
+          });
+        }, interval);
+      }, 10);
+      return;
+    }
     
     const config = getTimeModeConfig(timeMode);
     setIsRunning(true);
+    startTimeRef.current = Date.now(); // Record start time for synchronization
     
     // For flamenco mode, if currentBeat is already set to 12, start there
     // Otherwise, start at beat 1 for normal operation
@@ -142,14 +180,70 @@ export const useMetronome = (initialBpm = 100) => {
   }, [bpm, isRunning, playClick, timeMode, currentBeat]);
 
   const stop = useCallback(() => {
-    if (!isRunning) return;
-    
+    // Always clear timer regardless of isRunning state to prevent orphaned timers
     if (timerRef.current) {
       clearInterval(timerRef.current);
       timerRef.current = null;
     }
     setIsRunning(false);
-  }, [isRunning]);
+  }, []);
+
+  // Restart timer when playClick changes while running (e.g., when mute state changes)
+  // This maintains beat synchronization by calculating the proper timing offset
+  useEffect(() => {
+    if (isRunning && timerRef.current) {
+      // Clear the old timer first to prevent multiple timers
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+      
+      // Calculate proper timing to maintain synchronization with original start time
+      const config = getTimeModeConfig(timeMode);
+      const beatDuration = 60000 / bpm; // Duration of one beat in milliseconds
+      const elapsedTime = Date.now() - startTimeRef.current;
+      const elapsedBeats = Math.floor(elapsedTime / beatDuration);
+      const timeInCurrentBeat = elapsedTime % beatDuration;
+      const timeToNextBeat = beatDuration - timeInCurrentBeat;
+      
+      // Ensure we're on the correct beat based on elapsed time
+      const expectedBeat = (elapsedBeats % config.beatsPerCycle) + 1;
+      setCurrentBeat(expectedBeat);
+      
+      // Start the next beat at the proper time to maintain sync
+      const timeoutId = setTimeout(() => {
+        if (isRunning && !timerRef.current) { // Double-check conditions
+          setCurrentBeat(prev => {
+            const nextBeat = prev === config.beatsPerCycle ? 1 : prev + 1;
+            playClick(nextBeat);
+            return nextBeat;
+          });
+          
+          // Now start the regular interval
+          timerRef.current = setInterval(() => {
+            setCurrentBeat(prev => {
+              const nextBeat = prev === config.beatsPerCycle ? 1 : prev + 1;
+              playClick(nextBeat);
+              return nextBeat;
+            });
+          }, beatDuration);
+        }
+      }, timeToNextBeat);
+      
+      // Cleanup timeout if component unmounts or dependencies change
+      return () => {
+        clearTimeout(timeoutId);
+      };
+    }
+  }, [playClick, isRunning, bpm, timeMode]);
+
+  // Cleanup effect to prevent orphaned timers
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
+    };
+  }, []);
 
   const setBpmPrecise = useCallback((newBpm: number | string) => {
     const numericBpm = typeof newBpm === 'string' ? parseFloat(newBpm) : newBpm;
@@ -245,6 +339,7 @@ export const useMetronome = (initialBpm = 100) => {
     currentBeat,
     isRunning,
     timeMode,
+    isMuted,
     tapTempo,
     start,
     stop,
@@ -252,6 +347,7 @@ export const useMetronome = (initialBpm = 100) => {
     setBpm: setBpmPrecise,
     setCurrentBeat,
     setTimeMode,
+    toggleMute,
     getTimeModeConfig: () => getTimeModeConfig(timeMode)
   };
 };

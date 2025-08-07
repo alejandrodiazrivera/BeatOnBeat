@@ -1,5 +1,5 @@
 import { FC, useState, useEffect, ChangeEvent } from 'react';
-import { RotateCcw, MousePointerClick} from 'lucide-react';
+import { RotateCcw, MousePointerClick, Lock, LockOpen, Volume2, VolumeX, Square } from 'lucide-react';
 import BeatIndicator from './BeatIndicator';
 
 interface MetronomeControlsProps {
@@ -7,11 +7,14 @@ interface MetronomeControlsProps {
   currentBeat: number;
   isRunning: boolean;
   timeMode: '8-beat' | 'flamenco-12';
+  isMuted: boolean;
   onTapTempo: () => void;
   onStart: () => void;
+  onStop: () => void;
   onAdjustBpm: (amount: number) => void;
   onBpmChange: (newBpm: number) => void;
   onTimeModeChange: (mode: '8-beat' | 'flamenco-12') => void;
+  onToggleMute: () => void;
   getTimeModeConfig: () => {
     beatsPerCycle: number;
     strongBeats: number[];
@@ -24,14 +27,18 @@ const MetronomeControls: FC<MetronomeControlsProps> = ({
   currentBeat,
   isRunning,
   timeMode,
+  isMuted,
   onTapTempo,
   onStart,
+  onStop,
   onAdjustBpm,
   onBpmChange,
   onTimeModeChange,
+  onToggleMute,
   getTimeModeConfig
 }) => {
   const [inputValue, setInputValue] = useState(Math.round(bpm).toString());
+  const [isLocked, setIsLocked] = useState(false);
 
   // Sync input with BPM changes
   useEffect(() => {
@@ -59,6 +66,17 @@ const MetronomeControls: FC<MetronomeControlsProps> = ({
     if (e.key === 'Enter') {
       handleBpmInputBlur();
     }
+  };
+
+  // Lock toggle handler
+  const handleLockToggle = () => {
+    setIsLocked((prev) => !prev);
+    // You can add additional logic here to 'lock' the metronome sync
+  };
+
+  // Mute toggle handler
+  const handleMuteToggle = () => {
+    onToggleMute();
   };
 
   const handleIncrement = () => onAdjustBpm(1); // Increase by 1 BPM
@@ -105,14 +123,32 @@ const MetronomeControls: FC<MetronomeControlsProps> = ({
               className="font-bold w-full text-center border-2 border-InputboxColor rounded-lg py-1 pr-8 pl-2 focus:outline-none focus:ring-2 focus:ring-InputboxHighlight text-InputText"
               aria-label="BPM value"
               placeholder="100"
+              disabled={isLocked}
             />
             <span className="absolute right-2 top-1/2 -translate-y-1/2 text-Bpm text-xs pointer-events-none select-none">BPM</span>
           </div>
           <button
             onClick={handleIncrement}
             className="bg-Pause hover:bg-Stop text-Metronome hover:text-white w-8 h-8 rounded-full flex items-center justify-center font-bold transition-colors duration-200"
+            disabled={isLocked}
           >
             +
+          </button>
+          <button
+            onClick={handleLockToggle}
+            className={`ml-2 w-8 h-8 rounded-full flex items-center justify-center transition-colors duration-200 border-2 border-Borders ${isLocked ? 'bg-Metronome text-white' : 'bg-white text-Metronome hover:bg-Metronome hover:text-white'}`}
+            title={isLocked ? 'Unlock metronome sync' : 'Lock metronome sync'}
+            aria-label={isLocked ? 'Unlock metronome sync' : 'Lock metronome sync'}
+          >
+            {isLocked ? <Lock size={20} /> : <LockOpen size={20} />}
+          </button>
+          <button
+            onClick={handleMuteToggle}
+            className={`ml-2 w-8 h-8 rounded-full flex items-center justify-center transition-colors duration-200 border-2 border-Borders ${isMuted ? 'bg-Stop text-white' : 'bg-white text-Metronome hover:bg-Stop hover:text-white'}`}
+            title={isMuted ? 'Unmute metronome' : 'Mute metronome'}
+            aria-label={isMuted ? 'Unmute metronome' : 'Mute metronome'}
+          >
+            {isMuted ? <VolumeX size={20} /> : <Volume2 size={20} />}
           </button>
         </div>
         
@@ -144,6 +180,16 @@ const MetronomeControls: FC<MetronomeControlsProps> = ({
             title="Start metronome"
           >
             <RotateCcw size={20} />
+          </button>
+          
+          {/* Stop Button - Stops the metronome */}
+          <button
+            onClick={onStop}
+            className="px-4 py-2 rounded-lg transition-colors duration-200 bg-Metronome hover:bg-Stop text-white flex items-center justify-center font-medium"
+            title="Stop metronome"
+            disabled={!isRunning}
+          >
+            <Square size={20} />
           </button>
         </div>
       </div>

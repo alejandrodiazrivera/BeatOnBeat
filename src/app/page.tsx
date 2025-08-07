@@ -57,6 +57,7 @@ export default function Home() {
     currentBeat,
     isRunning: isMetronomeRunning,
     timeMode,
+    isMuted,
     start: startMetronome,
     stop: stopMetronome,
     adjustBpm,
@@ -64,6 +65,7 @@ export default function Home() {
     setCurrentBeat,
     setTimeMode,
     tapTempo,
+    toggleMute,
     getTimeModeConfig
   } = useMetronome();
 
@@ -436,11 +438,14 @@ export default function Home() {
           currentBeat={currentBeat}
           isRunning={isMetronomeRunning}
           timeMode={timeMode}
+          isMuted={isMuted}
           onTapTempo={tapTempo}
           onStart={handleStartMetronome}
+          onStop={stopMetronome}
           onAdjustBpm={adjustBpm}
           onBpmChange={(newBpm) => adjustBpm(newBpm - bpm)}
           onTimeModeChange={setTimeMode}
+          onToggleMute={toggleMute}
           getTimeModeConfig={getTimeModeConfig}
         />
 
