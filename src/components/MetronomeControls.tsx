@@ -8,6 +8,10 @@ interface MetronomeControlsProps {
   isRunning: boolean;
   timeMode: '8-beat' | 'flamenco-12';
   isMuted: boolean;
+  isLocked: boolean;
+  isCapturingSync?: boolean;
+  capturedBeatsCount?: number;
+  syncAccuracy?: number;
   onTapTempo: () => void;
   onStart: () => void;
   onStop: () => void;
@@ -15,10 +19,12 @@ interface MetronomeControlsProps {
   onBpmChange: (newBpm: number) => void;
   onTimeModeChange: (mode: '8-beat' | 'flamenco-12') => void;
   onToggleMute: () => void;
+  onLockSync: (syncData: { bpm: number; beat: number; videoTime: number }) => void;
   getTimeModeConfig: () => {
     beatsPerCycle: number;
     strongBeats: number[];
   };
+  getCurrentVideoTime: () => number;
   className?: string;
 }
 
@@ -28,6 +34,10 @@ const MetronomeControls: FC<MetronomeControlsProps> = ({
   isRunning,
   timeMode,
   isMuted,
+  isLocked,
+  isCapturingSync = false,
+  capturedBeatsCount = 0,
+  syncAccuracy,
   onTapTempo,
   onStart,
   onStop,
@@ -35,10 +45,11 @@ const MetronomeControls: FC<MetronomeControlsProps> = ({
   onBpmChange,
   onTimeModeChange,
   onToggleMute,
-  getTimeModeConfig
+  onLockSync,
+  getTimeModeConfig,
+  getCurrentVideoTime
 }) => {
   const [inputValue, setInputValue] = useState(Math.round(bpm).toString());
-  const [isLocked, setIsLocked] = useState(false);
 
   // Sync input with BPM changes
   useEffect(() => {
@@ -70,8 +81,14 @@ const MetronomeControls: FC<MetronomeControlsProps> = ({
 
   // Lock toggle handler
   const handleLockToggle = () => {
-    setIsLocked((prev) => !prev);
-    // You can add additional logic here to 'lock' the metronome sync
+    if (isLocked) {
+      // Unlock - call with null to clear sync
+      onLockSync({ bpm: 0, beat: 0, videoTime: 0 });
+    } else {
+      // Lock - capture current sync state
+      const currentVideoTime = getCurrentVideoTime();
+      onLockSync({ bpm, beat: currentBeat, videoTime: currentVideoTime });
+    }
   };
 
   // Mute toggle handler
@@ -136,11 +153,35 @@ const MetronomeControls: FC<MetronomeControlsProps> = ({
           </button>
           <button
             onClick={handleLockToggle}
-            className={`ml-2 w-8 h-8 rounded-full flex items-center justify-center transition-colors duration-200 border-2 border-Borders ${isLocked ? 'bg-Metronome text-white' : 'bg-white text-Metronome hover:bg-Metronome hover:text-white'}`}
-            title={isLocked ? 'Unlock metronome sync' : 'Lock metronome sync'}
-            aria-label={isLocked ? 'Unlock metronome sync' : 'Lock metronome sync'}
+            className={`ml-2 w-8 h-8 rounded-full flex items-center justify-center transition-colors duration-200 border-2 border-Borders ${
+              isCapturingSync 
+                ? 'bg-yellow-500 text-white animate-pulse' 
+                : isLocked 
+                  ? 'bg-Metronome text-white' 
+                  : 'bg-white text-Metronome hover:bg-Metronome hover:text-white'
+            }`}
+            title={
+              isCapturingSync 
+                ? `Capturing beat ${capturedBeatsCount}/4 - Keep metronome running!`
+                : isLocked 
+                  ? `Sync locked ${syncAccuracy ? `(${syncAccuracy.toFixed(1)}% accuracy)` : ''} - Click to unlock`
+                  : 'Lock metronome sync'
+            }
+            aria-label={
+              isCapturingSync 
+                ? `Capturing beat ${capturedBeatsCount} of 4`
+                : isLocked 
+                  ? 'Unlock metronome sync' 
+                  : 'Lock metronome sync'
+            }
           >
-            {isLocked ? <Lock size={20} /> : <LockOpen size={20} />}
+            {isCapturingSync ? (
+              <span className="text-xs font-bold">{capturedBeatsCount}</span>
+            ) : isLocked ? (
+              <Lock size={20} />
+            ) : (
+              <LockOpen size={20} />
+            )}
           </button>
           <button
             onClick={handleMuteToggle}

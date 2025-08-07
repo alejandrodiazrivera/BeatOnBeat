@@ -27,29 +27,6 @@ const parseTimeToSeconds = (timeString: string): number => {
   return minutes * 60 + seconds;
 };
 
-// Calculate the first downbeat (beat 1) time for precise metronome sync
-const calculateFirstDownbeat = (bpm: number, videoTime: number, currentBeat: number): number => {
-  // Calculate beat and measure durations
-  const beatDuration = 60.0 / bpm;
-  const measureDuration = 8 * beatDuration;
-  
-  // Time of last "1" beat BEFORE the given timestamp
-  const lastOneTime = videoTime - (currentBeat - 1) * beatDuration;
-  
-  // Compute first downbeat using modulo arithmetic
-  let firstOneTime = lastOneTime - measureDuration * Math.floor(lastOneTime / measureDuration);
-  
-  // Correct floating-point imprecision (if needed)
-  if (firstOneTime < 0 || firstOneTime >= measureDuration) {
-    firstOneTime = lastOneTime % measureDuration;
-    if (firstOneTime < 0) {
-      firstOneTime += measureDuration;
-    }
-  }
-  
-  return firstOneTime;
-};
-
 import VideoPlayer from '../components/VideoPlayer';
 import VideoControls from '../components/VideoControls';
 import MetronomeControls from '../components/MetronomeControls';
@@ -79,29 +56,7 @@ export default function Home() {
     bpm: number;
     beat: number;
     videoTime: number;
-    beatReferences?: Array<{
-      beat: number;
-      videoTime: number;
-      timestamp: number;
-    }>;
-    averageBpm?: number;
-    accuracy?: number;
   } | null>(null);
-  
-  // Multi-beat sync lock state
-  const [isCapturingSync, setIsCapturingSync] = useState(false);
-  const [capturedBeats, setCapturedBeats] = useState<Array<{
-    beat: number;
-    videoTime: number;
-    timestamp: number;
-  }>>([]);
-  
-  // Extrapolated beats for entire video
-  const [extrapolatedBeats, setExtrapolatedBeats] = useState<Array<{
-    beat: number;
-    videoTime: number;
-    cyclePosition: number;
-  }>>([]);
   
   // Refs for accessing video elements
   const videoElementRef = useRef<HTMLVideoElement | null>(null);
@@ -138,23 +93,9 @@ export default function Home() {
     const id = extractVideoId(videoUrl);
     if (id) {
       setVideoId(id);
-      setVideoFile(null); // Clear uploaded file when loading YouTube video
       startTimeTracking(true); // Reset time when loading new video
     } else {
       alert('Please enter a valid YouTube URL');
-    }
-  };
-
-  const handleVideoUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      // Clear YouTube video when uploading file
-      setVideoId(null);
-      setVideoUrl('');
-      setVideoFile(file);
-      startTimeTracking(true); // Reset time when loading new video
-      
-      console.log('📁 Video file uploaded:', file.name, 'Size:', (file.size / 1024 / 1024).toFixed(2), 'MB');
     }
   };
 
@@ -189,7 +130,7 @@ export default function Home() {
       const cueTime = parseTimeToSeconds(cue.time);
       const diff = Math.abs(time - cueTime);
       
-      if (diff < 0.1 && diff < minDiff) { // Reduced tolerance to 0.1 seconds for better precision
+      if (diff < 0.1 && diff < minDiff) {
         activeCue = cue;
         minDiff = diff;
       }
@@ -334,54 +275,6 @@ export default function Home() {
     
     if (newIsPlaying) {
       console.log('🎞️ Starting time tracking due to video play');
-      
-      // Apply enhanced sync lock logic if enabled
-      if (isLocked && syncReference) {
-        // Use the enhanced sync reference with improved BPM calculation
-        const usedBpm = syncReference.averageBpm || syncReference.bpm;
-        const videoDelta = currentTime - syncReference.videoTime;
-        const beatInterval = 60 / usedBpm;
-        const beatsElapsed = videoDelta / beatInterval;
-        const config = getTimeModeConfig();
-        
-        // Calculate precise beat position, maintaining sub-beat timing
-        const exactBeatPosition = syncReference.beat - 1 + beatsElapsed;
-        const cyclePosition = exactBeatPosition % config.beatsPerCycle;
-        const targetBeat = Math.floor(cyclePosition) + 1;
-        
-        // Calculate the fractional part to determine how far into the beat we are
-        const beatFraction = cyclePosition - Math.floor(cyclePosition);
-        
-        // Use the efficient algorithm to find the first downbeat time
-        const firstDownbeatTime = calculateFirstDownbeat(usedBpm, currentTime, targetBeat);
-        
-        console.log('🎵 Starting enhanced synced playback from video player with downbeat:', {
-          currentVideoTime: currentTime.toFixed(3),
-          firstDownbeatTime: firstDownbeatTime.toFixed(3),
-          videoDelta: videoDelta.toFixed(3),
-          beatsElapsed: beatsElapsed.toFixed(3),
-          exactBeatPosition: exactBeatPosition.toFixed(3),
-          targetBeat,
-          beatFraction: beatFraction.toFixed(3),
-          usedBpm: usedBpm.toFixed(2),
-          accuracy: syncReference.accuracy ? syncReference.accuracy.toFixed(1) + '%' : 'single-beat'
-        });
-        
-        // Set the correct beat and BPM first
-        setCurrentBeat(targetBeat);
-        setBpm(usedBpm);
-        
-        // Start metronome with sub-beat precision
-        // If we're significantly into a beat (more than 25%), advance to next beat
-        if (beatFraction > 0.25) {
-          const nextBeat = targetBeat === config.beatsPerCycle ? 1 : targetBeat + 1;
-          console.log('🎵 Advancing to next beat due to timing:', nextBeat);
-          setCurrentBeat(nextBeat);
-        }
-        
-        startMetronome();
-      }
-      
       startTimeTracking(); // Resume from current time
     } else {
       console.log('🎞️ Stopping time tracking due to video pause');
@@ -398,21 +291,21 @@ export default function Home() {
 
   const handleVideoEnded = () => {
     console.log('🎬 Video ended - stopping metronome and resetting');
-    // Reset all playback and metronome states so controls work again
+    
+    // Stop the video playback and time tracking
     setIsPlaying(false);
-    setCurrentTime(0); // Reset to beginning
     stopTimeTracking();
+    
+    // Stop the metronome if it's running
     if (isMetronomeRunning) {
       console.log('🥁 Stopping metronome because video ended');
       stopMetronome();
+      setCurrentBeat(1); // Reset to beat 1
     }
-    setCurrentBeat(1); // Always reset to beat 1
+    
+    // Reset any saved states
     setWasVideoPlaying(false);
     setWasMetronomeRunning(false);
-    // Optionally, reset overlays and editing cue
-    setOverlaysVisible(true);
-    setEditingCue(null);
-    // If you want to auto-enable controls, you can add more resets here
   };
 
   const handlePause = () => {
@@ -480,188 +373,16 @@ export default function Home() {
   // Handle sync lock toggle
   const handleLockSync = (syncData: { bpm: number; beat: number; videoTime: number }) => {
     if (syncData.bpm === 0) {
-      // Unlock and reset capture state
+      // Unlock
       setIsLocked(false);
       setSyncReference(null);
-      setIsCapturingSync(false);
-      setCapturedBeats([]);
-      console.log('🔓 Sync unlocked - metronome now free to adjust');
-    } else if (!isCapturingSync) {
-      // Start multi-beat capture sequence (now 8 beats)
-      setIsCapturingSync(true);
-      const firstBeat = {
-        beat: syncData.beat,
-        videoTime: syncData.videoTime,
-        timestamp: Date.now()
-      };
-      setCapturedBeats([firstBeat]);
-      
-      console.log('🎯 Starting multi-beat sync capture. Beat 1/8 captured:', {
-        beat: syncData.beat,
-        videoTime: syncData.videoTime.toFixed(3),
-        message: 'Keep metronome running - capturing next 7 beats...'
-      });
+      console.log('🔓 Sync unlocked');
     } else {
-      // Continue capturing beats
-      const newBeat = {
-        beat: syncData.beat,
-        videoTime: syncData.videoTime,
-        timestamp: Date.now()
-      };
-      
-      const updatedBeats = [...capturedBeats, newBeat];
-      setCapturedBeats(updatedBeats);
-      
-      console.log(`🎯 Beat ${updatedBeats.length}/8 captured:`, {
-        beat: syncData.beat,
-        videoTime: syncData.videoTime.toFixed(3)
-      });
-      
-      // If we have 8 beats, finalize the sync lock
-      if (updatedBeats.length >= 8) {
-        finalizeSyncLock(updatedBeats, syncData.bpm);
-      }
+      // Lock with current sync reference
+      setIsLocked(true);
+      setSyncReference(syncData);
+      console.log('🔒 Sync locked at:', syncData);
     }
-  };
-
-  const finalizeSyncLock = (beatReferences: Array<{beat: number; videoTime: number; timestamp: number}>, initialBpm: number) => {
-    if (beatReferences.length < 2) return;
-    
-    // Calculate average BPM from captured beats
-    const intervals: number[] = [];
-    for (let i = 1; i < beatReferences.length; i++) {
-      const timeDiff = beatReferences[i].videoTime - beatReferences[i-1].videoTime;
-      const beatDiff = beatReferences[i].beat - beatReferences[i-1].beat;
-      
-      // Handle beat wrap-around (e.g., beat 4 to beat 1)
-      const config = getTimeModeConfig();
-      const adjustedBeatDiff = beatDiff <= 0 ? beatDiff + config.beatsPerCycle : beatDiff;
-      
-      if (adjustedBeatDiff > 0) {
-        const intervalBpm = (adjustedBeatDiff * 60) / timeDiff;
-        intervals.push(intervalBpm);
-      }
-    }
-    // Debug info: log all captured beats and their video times
-    console.log('🔎 BPM Lock Debug: Registered beats and times:');
-    beatReferences.forEach((ref, idx) => {
-      console.log(`  Beat ${idx + 1}: beat=${ref.beat}, videoTime=${ref.videoTime.toFixed(3)}, timestamp=${ref.timestamp}`);
-    });
-    
-    // Calculate statistics
-    const averageBpm = intervals.reduce((sum, bpm) => sum + bpm, 0) / intervals.length;
-    const variance = intervals.reduce((sum, bpm) => sum + Math.pow(bpm - averageBpm, 2), 0) / intervals.length;
-    const stdDeviation = Math.sqrt(variance);
-    const accuracy = ((averageBpm - stdDeviation) / averageBpm) * 100;
-    
-    // Extrapolate beats for entire video duration (assuming 5 minutes max, can be made dynamic)
-    const videoDuration = 300; // 5 minutes in seconds - this could be dynamic from video element
-    const beatInterval = 60 / averageBpm;
-    const config = getTimeModeConfig();
-    const startReference = beatReferences[0];
-    
-    const extrapolated: Array<{beat: number; videoTime: number; cyclePosition: number}> = [];
-    
-    // Calculate backwards from start reference to time 0
-    let currentTime = startReference.videoTime;
-    let currentBeat = startReference.beat;
-    while (currentTime > 0) {
-      currentTime -= beatInterval;
-      currentBeat = currentBeat === 1 ? config.beatsPerCycle : currentBeat - 1;
-      if (currentTime >= 0) {
-        extrapolated.unshift({
-          beat: currentBeat,
-          videoTime: Math.round(currentTime * 1000) / 1000,
-          cyclePosition: currentBeat
-        });
-      }
-    }
-    
-    // Add the captured beats
-    beatReferences.forEach(ref => {
-      extrapolated.push({
-        beat: ref.beat,
-        videoTime: ref.videoTime,
-        cyclePosition: ref.beat
-      });
-    });
-    
-    // Calculate forwards from last reference to end of video
-    currentTime = beatReferences[beatReferences.length - 1].videoTime;
-    currentBeat = beatReferences[beatReferences.length - 1].beat;
-    while (currentTime < videoDuration) {
-      currentTime += beatInterval;
-      currentBeat = currentBeat === config.beatsPerCycle ? 1 : currentBeat + 1;
-      if (currentTime <= videoDuration) {
-        extrapolated.push({
-          beat: currentBeat,
-          videoTime: Math.round(currentTime * 1000) / 1000,
-          cyclePosition: currentBeat
-        });
-      }
-    }
-    
-    // Sort by time and store
-    extrapolated.sort((a, b) => a.videoTime - b.videoTime);
-    setExtrapolatedBeats(extrapolated);
-    
-    console.log('🎵 Extrapolated beats for entire video:', {
-      totalBeats: extrapolated.length,
-      videoDuration: videoDuration,
-      beatInterval: beatInterval.toFixed(3),
-      firstFewBeats: extrapolated.slice(0, 10).map(b => ({ 
-        beat: b.beat, 
-        time: b.videoTime.toFixed(3) 
-      })),
-      lastFewBeats: extrapolated.slice(-10).map(b => ({ 
-        beat: b.beat, 
-        time: b.videoTime.toFixed(3) 
-      }))
-    });
-
-    // Predict timestamps for first 2 bars (16 beats) starting from first downbeat
-    const predictedBeats: Array<{beat: number; bar: number; time: number}> = [];
-    // Find the first downbeat (beat 1) time
-    const firstDownbeatTime = calculateFirstDownbeat(averageBpm, startReference.videoTime, startReference.beat);
-    for (let i = 0; i < 16; i++) {
-      const beatNum = (i % config.beatsPerCycle) + 1;
-      const barNum = Math.floor(i / config.beatsPerCycle) + 1;
-      const timestamp = firstDownbeatTime + i * beatInterval;
-      predictedBeats.push({ beat: beatNum, bar: barNum, time: Math.round(timestamp * 1000) / 1000 });
-    }
-    console.log('🔮 Predicted timestamps for first 2 bars (16 beats):');
-    predictedBeats.forEach(b => {
-      console.log(`  Bar ${b.bar}, Beat ${b.beat}: ${formatTimeWithMilliseconds(b.time)}`);
-    });
-    
-    // Use the most recent beat as primary reference
-    const primaryReference = beatReferences[beatReferences.length - 1];
-    
-    const enhancedSyncRef = {
-      bpm: averageBpm,
-      beat: primaryReference.beat,
-      videoTime: primaryReference.videoTime,
-      beatReferences: beatReferences,
-      averageBpm: averageBpm,
-      accuracy: accuracy
-    };
-    
-    setIsLocked(true);
-    setSyncReference(enhancedSyncRef);
-    setIsCapturingSync(false);
-    setCapturedBeats([]);
-    
-    console.log('🔒 Enhanced sync lock finalized!', {
-      capturedBeats: beatReferences.length,
-      initialBpm: initialBpm.toFixed(1),
-      calculatedBpm: averageBpm.toFixed(2),
-      accuracy: accuracy.toFixed(1) + '%',
-      stdDeviation: stdDeviation.toFixed(2),
-      beatReferences: beatReferences.map(b => ({
-        beat: b.beat,
-        time: b.videoTime.toFixed(3)
-      }))
-    });
   };
 
   // Get current video time for sync reference
@@ -672,67 +393,25 @@ export default function Home() {
   // Enhanced play handler for sync mode
   const handlePlay = () => {
     if (isLocked && syncReference) {
-      // Use the enhanced sync reference with improved BPM calculation
-      const usedBpm = syncReference.averageBpm || syncReference.bpm;
+      // Calculate where to start metronome based on video position
       const videoDelta = currentTime - syncReference.videoTime;
-      const beatInterval = 60 / usedBpm;
+      const beatInterval = 60 / syncReference.bpm; // seconds per beat
       const beatsElapsed = videoDelta / beatInterval;
       const config = getTimeModeConfig();
       
-      // Calculate precise beat position, maintaining sub-beat timing
-      const exactBeatPosition = syncReference.beat - 1 + beatsElapsed;
-      const cyclePosition = exactBeatPosition % config.beatsPerCycle;
-      const targetBeat = Math.floor(cyclePosition) + 1;
+      // Calculate which beat we should be on
+      const targetBeat = ((syncReference.beat - 1 + Math.round(beatsElapsed)) % config.beatsPerCycle) + 1;
       
-      // Calculate the fractional part to determine how far into the beat we are
-      const beatFraction = cyclePosition - Math.floor(cyclePosition);
-      
-      // Use the efficient algorithm to find the first downbeat time
-      const firstDownbeatTime = calculateFirstDownbeat(usedBpm, currentTime, targetBeat);
-      
-      console.log('🎵 Starting enhanced synced playback with downbeat calculation:', {
-        currentVideoTime: currentTime.toFixed(3),
-        firstDownbeatTime: firstDownbeatTime.toFixed(3),
-        videoDelta: videoDelta.toFixed(3),
-        beatsElapsed: beatsElapsed.toFixed(3),
-        exactBeatPosition: exactBeatPosition.toFixed(3),
+      console.log('🎵 Starting synced playback:', {
+        videoDelta,
+        beatsElapsed,
         targetBeat,
-        beatFraction: beatFraction.toFixed(3),
-        usedBpm: usedBpm.toFixed(2),
-        accuracy: syncReference.accuracy ? syncReference.accuracy.toFixed(1) + '%' : 'single-beat',
-        capturedBeats: syncReference.beatReferences?.length || 1
+        syncRef: syncReference
       });
       
-      // Show extrapolated beats for current video position if available
-      if (extrapolatedBeats.length > 0) {
-        const currentIndex = extrapolatedBeats.findIndex(b => Math.abs(b.videoTime - currentTime) < 0.1);
-        const contextBeats = currentIndex >= 0 
-          ? extrapolatedBeats.slice(Math.max(0, currentIndex - 2), currentIndex + 3)
-          : extrapolatedBeats.slice(0, 5);
-        
-        console.log('🎵 Extrapolated beats around current position:', {
-          currentVideoTime: currentTime.toFixed(3),
-          firstDownbeatCalculated: firstDownbeatTime.toFixed(3),
-          contextBeats: contextBeats.map(b => ({
-            beat: b.beat,
-            time: b.videoTime.toFixed(3),
-            isCurrent: Math.abs(b.videoTime - currentTime) < 0.1
-          }))
-        });
-      }
-      
-      // Set the correct beat and BPM first
+      // Set the correct beat and start metronome
       setCurrentBeat(targetBeat);
-      setBpm(usedBpm);
-      
-      // Start metronome with sub-beat precision
-      // If we're significantly into a beat (more than 25%), advance to next beat
-      if (beatFraction > 0.25) {
-        const nextBeat = targetBeat === config.beatsPerCycle ? 1 : targetBeat + 1;
-        console.log('🎵 Advancing to next beat due to timing:', nextBeat);
-        setCurrentBeat(nextBeat);
-      }
-      
+      setBpm(syncReference.bpm);
       startMetronome();
     }
     
@@ -752,35 +431,20 @@ export default function Home() {
       
       <main className="pt-24 px-4">
         <div className="container mx-auto max-w-4xl">
-          <div className="flex flex-col gap-2 mb-4">
+          <div className="flex flex-col md:flex-row gap-2 mb-4">
             <input
               type="text"
               value={videoUrl}
               onChange={(e) => setVideoUrl(e.target.value)}
               placeholder="Paste YouTube URL..."
-              className="w-full p-3 border-2 border-InputboxColor rounded-lg focus:ring-2 focus:ring-InputboxHighlight focus:border-InputboxHighlight focus:outline-none text-InputText placeholder-InputboxColor"
+              className="flex-1 p-3 border-2 border-InputboxColor rounded-lg focus:ring-2 focus:ring-InputboxHighlight focus:border-InputboxHighlight focus:outline-none text-InputText placeholder-InputboxColor"
             />
-            <div className="flex flex-col sm:flex-row gap-2 w-full">
-              <button
-                onClick={loadVideo}
-                className="flex-1 bg-LoadVideo hover:bg-LoadVideoHover text-white px-4 py-3 rounded-lg transition-colors duration-200 font-medium"
-              >
-                Load Video
-              </button>
-              <button
-                onClick={() => document.getElementById('video-upload')?.click()}
-                className="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-4 py-3 rounded-lg transition-colors duration-200 font-medium"
-              >
-                Upload Video
-              </button>
-              <input
-                id="video-upload"
-                type="file"
-                accept="video/*"
-                onChange={handleVideoUpload}
-                style={{ display: 'none' }}
-              />
-            </div>
+            <button
+              onClick={loadVideo}
+              className="bg-LoadVideo hover:bg-LoadVideoHover text-white px-4 py-3 rounded-lg transition-colors duration-200 font-medium"
+            >
+              Load Video
+            </button>
           </div>
 
           <div className="mb-4 aspect-video bg-black rounded-lg overflow-hidden">
@@ -829,9 +493,6 @@ export default function Home() {
               timeMode={timeMode}
               isMuted={isMuted}
               isLocked={isLocked}
-              isCapturingSync={isCapturingSync}
-              capturedBeatsCount={capturedBeats.length}
-              syncAccuracy={syncReference?.accuracy}
               onTapTempo={tapTempo}
               onStart={handleStartMetronome}
               onStop={stopMetronome}

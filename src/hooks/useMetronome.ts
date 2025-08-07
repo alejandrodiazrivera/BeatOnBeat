@@ -45,19 +45,47 @@ export const useMetronome = (initialBpm = 100) => {
 
   useEffect(() => {
     const initAudio = async () => {
-      audioContextRef.current = new (window.AudioContext || window.webkitAudioContext)();
+      try {
+        audioContextRef.current = new (window.AudioContext || window.webkitAudioContext)();
+        
+        // Resume audio context if it's suspended (common on mobile)
+        if (audioContextRef.current.state === 'suspended') {
+          await audioContextRef.current.resume();
+        }
+      } catch (error) {
+        console.warn('Audio context initialization failed:', error);
+      }
     };
 
-    const handleFirstInteraction = () => {
-      initAudio();
+    const handleFirstInteraction = async () => {
+      await initAudio();
+      
+      // Additional mobile-specific audio context activation
+      if (audioContextRef.current && audioContextRef.current.state === 'suspended') {
+        try {
+          await audioContextRef.current.resume();
+        } catch (error) {
+          console.warn('Failed to resume audio context:', error);
+        }
+      }
+      
+      // Remove listeners after successful activation
       window.removeEventListener('click', handleFirstInteraction);
+      window.removeEventListener('touchstart', handleFirstInteraction);
       window.removeEventListener('keydown', handleFirstInteraction);
     };
 
+    // Listen for multiple interaction types (including touch for mobile)
     window.addEventListener('click', handleFirstInteraction);
+    window.addEventListener('touchstart', handleFirstInteraction);
     window.addEventListener('keydown', handleFirstInteraction);
 
     return () => {
+      // Remove all event listeners
+      window.removeEventListener('click', handleFirstInteraction);
+      window.removeEventListener('touchstart', handleFirstInteraction);
+      window.removeEventListener('keydown', handleFirstInteraction);
+      
       clickSourcesRef.current.forEach(source => {
         if (source) {
           source.stop();
@@ -73,8 +101,18 @@ export const useMetronome = (initialBpm = 100) => {
     };
   }, []);
 
-  const playClick = useCallback((beat: number) => {
+  const playClick = useCallback(async (beat: number) => {
     if (!audioContextRef.current || isMuted) return;
+    
+    // Ensure audio context is resumed (important for mobile)
+    if (audioContextRef.current.state === 'suspended') {
+      try {
+        await audioContextRef.current.resume();
+      } catch (error) {
+        console.warn('Failed to resume audio context:', error);
+        return;
+      }
+    }
     
     const config = getTimeModeConfig(timeMode);
     const oscillator = audioContextRef.current.createOscillator();
@@ -177,7 +215,7 @@ export const useMetronome = (initialBpm = 100) => {
         return nextBeat;
       });
     }, interval);
-  }, [bpm, isRunning, playClick, timeMode, currentBeat]);
+  }, [bpm, isRunning, timeMode, currentBeat]);
 
   const stop = useCallback(() => {
     // Always clear timer regardless of isRunning state to prevent orphaned timers

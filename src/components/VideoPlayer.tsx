@@ -194,7 +194,7 @@ export default function VideoPlayer({
         originalConsoleWarn(message, ...args);
       };
       
-      const suppressYouTubeErrors = (message: any, ...args: any[]) => {
+      const suppressYouTubeErrors = (message: unknown, ...args: unknown[]) => {
         const messageStr = String(message);
         if (messageStr.includes('postMessage') && 
             messageStr.includes('youtube.com') && 
@@ -263,6 +263,11 @@ export default function VideoPlayer({
                 if (isEnded && onVideoEnded) {
                   if (debug) console.log('🎬 Video ended, calling onVideoEnded');
                   onVideoEnded();
+                    // Reset YouTube video to beginning after end (for testing)
+                    if (playerRef.current && typeof playerRef.current.seekTo === 'function') {
+                      playerRef.current.seekTo(0, true);
+                      if (debug) console.log('🔄 YouTube video reset to start after end');
+                    }
                 }
               }
             },
