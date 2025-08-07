@@ -191,7 +191,6 @@ export const useMetronome = (initialBpm = 100) => {
       const avgInterval = intervals.reduce((sum, val) => sum + val, 0) / intervals.length;
       
       // Calculate BPM based on time mode and intelligent pattern detection
-      const config = getTimeModeConfig(timeMode);
       let tappedBpm;
       
       if (timeMode === '8-beat') {

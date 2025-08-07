@@ -1,7 +1,31 @@
 'use client';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { CuePoint } from '../types/types';
 import { useMetronome } from '../hooks/useMetronome';
+
+// Utility functions for precise time handling
+const formatTimeWithMilliseconds = (timeInSeconds: number): string => {
+  const minutes = Math.floor(timeInSeconds / 60);
+  const seconds = Math.floor(timeInSeconds % 60);
+  const milliseconds = Math.floor((timeInSeconds % 1) * 1000);
+  
+  if (milliseconds === 0) {
+    return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+  } else {
+    return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}.${milliseconds.toString().padStart(3, '0')}`;
+  }
+};
+
+const parseTimeToSeconds = (timeString: string): number => {
+  const parts = timeString.split(':');
+  const minutes = parseInt(parts[0]);
+  let secondsPart = parts[1];
+  
+  // Handle milliseconds if present (e.g., "45.500" or "45")
+  const seconds = parseFloat(secondsPart);
+  
+  return minutes * 60 + seconds;
+};
 import VideoPlayer from '../components/VideoPlayer';
 import VideoControls from '../components/VideoControls';
 import MetronomeControls from '../components/MetronomeControls';
@@ -20,20 +44,26 @@ export default function Home() {
   const [editingCue, setEditingCue] = useState<CuePoint | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [wasMetronomeRunning, setWasMetronomeRunning] = useState(false);
+  const [wasVideoPlaying, setWasVideoPlaying] = useState(false);
   const [pausedBeat, setPausedBeat] = useState(1);
   const [playbackSpeed, setPlaybackSpeed] = useState(1);
+  const [videoFile, setVideoFile] = useState<File | null>(null);
+  
+  // Refs for accessing video elements
+  const videoElementRef = useRef<HTMLVideoElement | null>(null);
   
   const {
     bpm,
     currentBeat,
     isRunning: isMetronomeRunning,
     timeMode,
-    tapTempo,
     start: startMetronome,
     stop: stopMetronome,
     adjustBpm,
-    setCurrentBeat: setMetronomeBeat,
+    setBpm,
+    setCurrentBeat,
     setTimeMode,
+    tapTempo,
     getTimeModeConfig
   } = useMetronome();
 
@@ -63,10 +93,14 @@ export default function Home() {
     if (resetTime) {
       setCurrentTime(0);
     }
-    // Adjust interval based on playback speed for smoother tracking
-    const interval = playbackSpeed <= 0.5 ? 250 : 500;
+    // Use higher precision interval for better millisecond accuracy
+    const interval = 100; // Update every 100ms for better precision
     timeUpdateIntervalRef.current = setInterval(() => {
-      setCurrentTime(prev => prev + (interval / 1000) * playbackSpeed);
+      setCurrentTime(prev => {
+        const newTime = prev + (interval / 1000) * playbackSpeed;
+        // Round to 3 decimal places for millisecond precision
+        return Math.round(newTime * 1000) / 1000;
+      });
     }, interval);
   };
 
@@ -77,37 +111,60 @@ export default function Home() {
     }
   };
 
-  const checkActiveCue = (time: number) => {
+  const checkActiveCue = useCallback((time: number) => {
     let activeCue = null;
     let minDiff = Infinity;
     
     cuePoints.forEach(cue => {
-      const [minutes, seconds] = cue.time.split(':').map(Number);
-      const cueTime = minutes * 60 + seconds;
+      const cueTime = parseTimeToSeconds(cue.time);
       const diff = Math.abs(time - cueTime);
       
-      if (diff < 0.5 && diff < minDiff) {
+      if (diff < 0.1 && diff < minDiff) { // Reduced tolerance to 0.1 seconds for better precision
         activeCue = cue;
         minDiff = diff;
       }
     });
     
     setCurrentCue(activeCue);
-  };
+  }, [cuePoints]);
 
   useEffect(() => {
     checkActiveCue(currentTime);
-  }, [currentTime, cuePoints]);
+  }, [currentTime, cuePoints, checkActiveCue]);
 
   const handleAddCue = () => {
-    // Pause both video and metronome when adding a cue
+    console.log('🎯 handleAddCue called - Current states:', {
+      isPlaying,
+      isMetronomeRunning,
+      currentTime,
+      currentBeat
+    });
+
+    // Track current states before pausing
+    setWasVideoPlaying(isPlaying);
+    setWasMetronomeRunning(isMetronomeRunning);
+    setPausedBeat(currentBeat);
+
+    // Pause both video and metronome when adding a cue - use proper handlers
     if (isPlaying) {
-      handlePause();
+      console.log('🎬 Video is playing, pausing for cue add');
+      handlePause(); // Use the existing handlePause function for proper state management
+    } else if (isMetronomeRunning) {
+      // If video is already paused but metronome is running, stop just the metronome
+      console.log('🥁 Metronome is running, stopping it');
+      stopMetronome();
+    } else {
+      console.log('🎬 Video and metronome are already stopped');
     }
 
     const minutes = Math.floor(currentTime / 60).toString().padStart(2, '0');
     const seconds = Math.floor(currentTime % 60).toString().padStart(2, '0');
-    const time = `${minutes}:${seconds}`;
+    const milliseconds = Math.floor((currentTime % 1) * 1000);
+    
+    // Include milliseconds for precision if not zero
+    const time = milliseconds === 0 
+      ? `${minutes}:${seconds}`
+      : `${minutes}:${seconds}.${milliseconds.toString().padStart(3, '0')}`;
     
     // For new cues, set editingCue to a template object WITHOUT an id
     setEditingCue({
@@ -142,20 +199,41 @@ export default function Home() {
     }
     setEditingCue(null);
     
-    // Resume playback if it was playing before
-    if (wasMetronomeRunning) {
-      setMetronomeBeat(pausedBeat);
+    // Store the previous states before resetting them
+    const shouldResumeVideo = wasVideoPlaying;
+    const shouldResumeMetronome = wasMetronomeRunning;
+    const beatToResume = pausedBeat;
+    
+    // Reset tracking states first
+    setWasVideoPlaying(false);
+    setWasMetronomeRunning(false);
+    
+    // Resume playback if it was playing before - use the proper handlers
+    if (shouldResumeMetronome) {
+      setCurrentBeat(beatToResume);
       startMetronome();
     }
-    if (isPlaying) {
-      handlePlay();
+    if (shouldResumeVideo) {
+      console.log('🎬 Resuming video playback after cue save');
+      handlePlay(); // Use the existing handlePlay function for proper state management
     }
   };
 
   const handleEditCue = (cue: CuePoint) => {
+    // Track current states before pausing
+    setWasVideoPlaying(isPlaying);
+    setWasMetronomeRunning(isMetronomeRunning);
+    setPausedBeat(currentBeat);
+
+    // Pause both video and metronome when editing a cue - use proper handlers
     if (isPlaying) {
-      handlePause();
+      console.log('🎬 Pausing video for cue edit');
+      handlePause(); // Use the existing handlePause function for proper state management
+    } else if (isMetronomeRunning) {
+      // If video is already paused but metronome is running, stop just the metronome
+      stopMetronome();
     }
+    
     setEditingCue(cue);
   };
 
@@ -169,9 +247,54 @@ export default function Home() {
   };
 
   const handleJumpToTimestamp = (time: string) => {
-    const [minutes, seconds] = time.split(':').map(Number);
-    const newTime = minutes * 60 + seconds;
+    const newTime = parseTimeToSeconds(time);
     setCurrentTime(newTime);
+  };
+
+  const handleVideoPlayStateChange = (newIsPlaying: boolean) => {
+    console.log('🎞️ Video player state changed:', newIsPlaying);
+    
+    // Prevent unnecessary updates if state is already correct
+    if (isPlaying === newIsPlaying) {
+      console.log('🎞️ State already matches, skipping update');
+      return;
+    }
+    
+    setIsPlaying(newIsPlaying);
+    
+    if (newIsPlaying) {
+      console.log('🎞️ Starting time tracking due to video play');
+      startTimeTracking(); // Resume from current time
+    } else {
+      console.log('🎞️ Stopping time tracking due to video pause');
+      stopTimeTracking();
+      // When video is paused, also pause metronome if it's running
+      if (isMetronomeRunning) {
+        console.log('🥁 Auto-pausing metronome because video paused');
+        setWasMetronomeRunning(true);
+        setPausedBeat(currentBeat);
+        stopMetronome();
+      }
+    }
+  };
+
+  const handleVideoEnded = () => {
+    console.log('🎬 Video ended - stopping metronome and resetting');
+    
+    // Stop the video playback and time tracking
+    setIsPlaying(false);
+    stopTimeTracking();
+    
+    // Stop the metronome if it's running
+    if (isMetronomeRunning) {
+      console.log('🥁 Stopping metronome because video ended');
+      stopMetronome();
+      setCurrentBeat(1); // Reset to beat 1
+    }
+    
+    // Reset any saved states
+    setWasVideoPlaying(false);
+    setWasMetronomeRunning(false);
   };
 
   const handlePlay = () => {
@@ -189,13 +312,24 @@ export default function Home() {
     }
   };
 
+  const handleStop = () => {
+    setIsPlaying(false);
+    setCurrentTime(0); // Reset to beginning
+    stopTimeTracking();
+    if (isMetronomeRunning) {
+      stopMetronome();
+    }
+    // Reset metronome beat to 1
+    setCurrentBeat(1);
+  };
+
   const handleSkipBack = () => {
-    const newTime = Math.max(0, currentTime - 10);
+    const newTime = Math.max(0, currentTime - 5);
     setCurrentTime(newTime);
   };
 
   const handleSkipForward = () => {
-    const newTime = currentTime + 10;
+    const newTime = currentTime + 5;
     setCurrentTime(newTime);
   };
 
@@ -219,11 +353,11 @@ export default function Home() {
     
     if (timeMode === 'flamenco-12') {
       // For flamenco, start ON beat 12 (flamenco technique)
-      setMetronomeBeat(12);
+      setCurrentBeat(12);
     } else {
       // For 8-beat, set to last beat so first tick will be beat 1
       const config = getTimeModeConfig();
-      setMetronomeBeat(config.beatsPerCycle);
+      setCurrentBeat(config.beatsPerCycle);
     }
     
     // Start metronome
@@ -237,7 +371,7 @@ export default function Home() {
   }, []);
 
   return (
-    <div className="relative min-h-screen">
+    <div className="relative min-h-screen bg-gradient-to-br from-[white] via-[#F9FAFB] to-[white]">
       <Header />
       
       <main className="pt-24 px-4">
@@ -248,34 +382,14 @@ export default function Home() {
           value={videoUrl}
           onChange={(e) => setVideoUrl(e.target.value)}
           placeholder="Paste YouTube URL..."
-          className="flex-1 p-3 border rounded-lg focus:ring-2 focus:ring-blue-200"
+          className="flex-1 p-3 border-2 border-InputboxColor rounded-lg focus:ring-2 focus:ring-InputboxHighlight focus:border-InputboxHighlight focus:outline-none text-InputText placeholder-InputboxColor"
         />
         <button
           onClick={loadVideo}
-          className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-3 rounded-lg"
+          className="bg-LoadVideo hover:bg-LoadVideoHover text-white px-4 py-3 rounded-lg transition-colors duration-200 font-medium"
         >
           Load Video
         </button>
-        <label className="bg-green-500 hover:bg-green-600 text-white px-4 py-3 rounded-lg cursor-pointer flex items-center gap-2">
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-          </svg>
-          Upload File
-          <input
-            type="file"
-            accept="video/*"
-            onChange={(e) => {
-              const file = e.target.files?.[0];
-              if (file) {
-                // Clear YouTube URL when uploading a file
-                setVideoUrl('');
-                setVideoId(null);
-                // The VideoPlayer component will handle the file
-              }
-            }}
-            className="hidden"
-          />
-        </label>
       </div>
 
       <div className="mb-4 aspect-video bg-black rounded-lg overflow-hidden">
@@ -288,23 +402,35 @@ export default function Home() {
           isMetronomeRunning={isMetronomeRunning}
           isPlaying={isPlaying}
           playbackSpeed={playbackSpeed}
+          onTimeUpdate={setCurrentTime}
+          onPlayStateChange={handleVideoPlayStateChange}
+          onVideoEnded={handleVideoEnded}
+          onVideoElementReady={(element) => {
+            videoElementRef.current = element;
+          }}
+          onVideoFileUploaded={(file) => {
+            console.log('📁 VideoPlayer uploaded file:', file.name);
+            setVideoFile(file);
+          }}
         />
       </div>
 
-      <div className="flex flex-wrap gap-3 mb-6 p-3 bg-gray-50 rounded-lg">
+      <div className="flex flex-wrap gap-3 mb-6 p-3 bg-transparent rounded-lg">
         <VideoControls
           onPlay={handlePlay}
           onPause={handlePause}
+          onStop={handleStop}
           onSkipBack={handleSkipBack}
           onSkipForward={handleSkipForward}
           onSpeedChange={handleSpeedChange}
           onAddCue={handleAddCue}
           onToggleOverlay={handleToggleOverlay}
-          isPlaying={isPlaying}
           overlaysVisible={overlaysVisible}
           playbackSpeed={playbackSpeed}
         />
-        
+      </div>
+
+      <div className="space-y-6">
         <MetronomeControls
           bpm={bpm}
           currentBeat={currentBeat}
@@ -316,7 +442,14 @@ export default function Home() {
           onBpmChange={(newBpm) => adjustBpm(newBpm - bpm)}
           onTimeModeChange={setTimeMode}
           getTimeModeConfig={getTimeModeConfig}
-          className="ml-auto"
+        />
+
+        <CueList
+          cuePoints={cuePoints}
+          currentTime={currentTime}
+          onEdit={handleEditCue}
+          onDelete={handleDeleteCue}
+          onJump={handleJumpToTimestamp}
         />
       </div>
 
@@ -333,14 +466,6 @@ export default function Home() {
           />
         </div>
       )}
-
-      <CueList
-        cuePoints={cuePoints}
-        currentTime={currentTime}
-        onEdit={handleEditCue}
-        onDelete={handleDeleteCue}
-        onJump={handleJumpToTimestamp}
-      />
       </div>
       </main>
       <Footer />

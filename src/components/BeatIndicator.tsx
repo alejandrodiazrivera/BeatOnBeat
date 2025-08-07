@@ -29,24 +29,24 @@ const BeatIndicator: FC<BeatIndicatorProps> = ({
 
   // Get beat color - enhanced for flamenco
   const getBeatColor = (beat: number) => {
-    if (!isRunning) return 'bg-gray-200';
-    
+    if (!isRunning) return 'bg-gray-300'; // Default color when not running
+
     const isCurrentBeat = beat === normalizedBeat;
     
     if (timeMode === 'flamenco-12') {
       if (config.strongBeats.includes(beat)) {
-        // Flamenco accents (3, 6, 8, 10, 12) - deep red for authenticity
-        return isCurrentBeat ? 'bg-red-600' : 'bg-red-300';
+        // Flamenco accents (3, 6, 8, 10, 12) - using brand colors
+        return isCurrentBeat ? 'bg-[#f0807f]' : 'bg-[#c497ec]';
       } else {
         // Non-accented beats - subtle
-        return isCurrentBeat ? 'bg-orange-400' : 'bg-gray-200';
+        return isCurrentBeat ? 'bg-[#e4d96f]' : 'bg-[#f1bfb4]';
       }
     } else {
       // Original 8-beat pattern
       if (config.strongBeats.includes(beat)) {
-        return isCurrentBeat ? 'bg-purple-500' : 'bg-purple-200';
+        return isCurrentBeat ? 'bg-black' : 'bg-gray-300';
       } else {
-        return isCurrentBeat ? 'bg-red-500' : 'bg-gray-200';
+        return isCurrentBeat ? 'bg-gray-700' : 'bg-gray-200';
       }
     }
   };
@@ -74,12 +74,17 @@ const BeatIndicator: FC<BeatIndicatorProps> = ({
   return (
     <div className="flex flex-col gap-2">
       <div className="flex items-center gap-1 flex-wrap justify-center">
-        {beats.map(beat => (
-          <div
-            key={beat}
-            className={`w-6 h-6 rounded-full flex items-center justify-center text-white text-xs font-bold transition-colors duration-100 ${getBeatColor(beat)}`}
-          >
-            {isRunning && normalizedBeat === beat ? beat : ''}
+        {beats.map((beat, index) => (
+          <div key={beat} className="flex items-center gap-1">
+            <div
+              className={`w-6 h-6 rounded-full flex items-center justify-center text-white text-xs font-bold transition-colors duration-100 ${getBeatColor(beat)}`}
+            >
+              {isRunning && normalizedBeat === beat ? beat : ''}
+            </div>
+            {/* Add divider after 4th beat in 8-beat mode */}
+            {index === 3 && (
+              <div className="mx-1 text-Separator font-bold text-lg">|</div>
+            )}
           </div>
         ))}
       </div>

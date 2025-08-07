@@ -1,6 +1,19 @@
 import { FC, useState, useEffect, useRef } from 'react';
 import { CuePoint } from '../types/types';
 
+// Utility functions for precise time handling
+const formatTimeWithMilliseconds = (timeInSeconds: number): string => {
+  const minutes = Math.floor(timeInSeconds / 60);
+  const seconds = Math.floor(timeInSeconds % 60);
+  const milliseconds = Math.floor((timeInSeconds % 1) * 1000);
+  
+  if (milliseconds === 0) {
+    return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+  } else {
+    return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}.${milliseconds.toString().padStart(3, '0')}`;
+  }
+};
+
 interface CueFormProps {
   currentTime: number;
   currentBeat: number;
@@ -28,9 +41,17 @@ const CueForm: FC<CueFormProps> = ({
   const [isDragging, setIsDragging] = useState(false);
   const [position, setPosition] = useState({ x: 0, y: 0 });
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
+  const isMobile = typeof window !== 'undefined' ? window.innerWidth < 640 : false;
   const formRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    console.log('📝 CueForm useEffect triggered:', {
+      editingCue: !!editingCue,
+      editingCueId: editingCue?.id,
+      currentTime,
+      currentBeat
+    });
+    console.log('📝 CueForm calling onPause()');
     onPause();
 
     if (editingCue) {
@@ -39,9 +60,8 @@ const CueForm: FC<CueFormProps> = ({
       setNote(editingCue.note);
       setBeat(editingCue.beat);
     } else {
-      const minutes = Math.floor(currentTime / 60).toString().padStart(2, '0');
-      const seconds = Math.floor(currentTime % 60).toString().padStart(2, '0');
-      setTime(`${minutes}:${seconds}`);
+      const formattedTime = formatTimeWithMilliseconds(currentTime);
+      setTime(formattedTime);
       setTitle('');
       setNote('');
       setBeat(currentBeat); // Always set the beat, regardless of metronome state
@@ -50,8 +70,8 @@ const CueForm: FC<CueFormProps> = ({
 
   // Drag handlers
   const handleMouseDown = (e: React.MouseEvent) => {
+    if (isMobile) return; // Disable dragging on mobile
     if (!formRef.current) return;
-    
     const rect = formRef.current.getBoundingClientRect();
     setDragOffset({
       x: e.clientX - rect.left,
@@ -118,7 +138,7 @@ const CueForm: FC<CueFormProps> = ({
       return [3, 6, 8, 10, 12].includes(beatValue) ? 'bg-red-600' : 'bg-orange-500';
     } else {
       // 8-beat mode: Beats 1 and 5 are purple, all others are red
-      return beatValue === 1 || beatValue === 5 ? 'bg-purple-600' : 'bg-red-600';
+      return beatValue === 1 || beatValue === 5 ? 'bg-black' : 'bg-gray-400';
     }
   };
 
@@ -133,36 +153,51 @@ const CueForm: FC<CueFormProps> = ({
   return (
     <div 
       ref={formRef}
-      className={`mb-6 bg-white rounded-xl shadow-lg border max-w-md w-full mx-4 ${isDragging ? 'cursor-grabbing' : 'cursor-grab'}`}
-      style={{
-        position: 'fixed',
-        left: position.x === 0 && position.y === 0 ? '50%' : position.x,
-        top: position.y === 0 && position.y === 0 ? '50%' : position.y,
-        transform: position.x === 0 && position.y === 0 ? 'translate(-50%, -50%)' : 'none',
-        zIndex: 1000,
-      }}
+      className={`mb-6 bg-white rounded-xl shadow-lg border-2 border-black w-full max-w-[calc(100vw-2rem)] sm:max-w-lg ${isMobile ? '' : (isDragging ? 'cursor-grabbing' : 'cursor-grab')}`}
+      style={isMobile
+        ? {
+            position: 'fixed',
+            left: '50%',
+            top: '50%',
+            transform: 'translate(-50%, -50%)',
+            zIndex: 1000,
+            maxHeight: 'calc(100vh - 2rem)',
+            overflow: 'auto',
+            margin: '0 1rem',
+          }
+        : {
+            position: 'fixed',
+            left: position.x === 0 && position.y === 0 ? '50%' : Math.max(16, Math.min(position.x, window.innerWidth - (formRef.current?.offsetWidth || 400) - 16)),
+            top: position.y === 0 && position.y === 0 ? '50%' : Math.max(8, Math.min(position.y, window.innerHeight - (formRef.current?.offsetHeight || 500) - 8)),
+            transform: position.x === 0 && position.y === 0 ? 'translate(-50%, -50%)' : 'none',
+            zIndex: 1000,
+            maxHeight: 'calc(100vh - 2rem)',
+            overflow: 'auto',
+            margin: 0,
+          }
+      }
     >
       {/* Header with beat indicator */}
       <div 
-        className="flex items-center gap-3 mb-4 p-4 pb-0"
+        className="flex items-center gap-2 sm:gap-3 mb-3 sm:mb-4 p-3 sm:p-4 pb-0"
         onMouseDown={handleMouseDown}
       >
         <div 
-          className={`rounded-full h-10 w-10 flex items-center justify-center text-white font-bold cursor-pointer hover:scale-110 transition-transform ${getBeatColor(beat || 1)}`}
+          className={`rounded-full h-8 w-8 sm:h-10 sm:w-10 flex items-center justify-center text-white font-bold cursor-pointer hover:scale-110 transition-transform text-sm sm:text-base ${getBeatColor(beat || 1)}`}
           onClick={handleBeatClick}
           title="Click to change beat number"
         >
           {beat || 1}
         </div>
-        <div className="flex-1 flex items-center justify-between">
-          <h3 className="text-xl font-bold text-gray-800">
+        <div className="flex-1 flex items-center justify-between min-w-0">
+          <h3 className="text-lg sm:text-xl font-bold text-Title truncate pr-2">
             {editingCue ? 'Edit Cue Point' : '➕ Add New Cue Point'}
           </h3>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-shrink-0">
             {editingCue && (
               <button
                 onClick={onCancel}
-                className="text-gray-400 hover:text-gray-600 transition ml-2"
+                className="text-Exit hover:text-ExitHighlight transition ml-2 text-lg sm:text-xl"
                 aria-label="Close"
               >
                 ✕
@@ -172,59 +207,66 @@ const CueForm: FC<CueFormProps> = ({
         </div>
       </div>
 
-      <div className="px-4 pb-4">
-        <form onSubmit={handleSubmit} className="space-y-4">
-        {/* Top row - Time and Title */}
-        <div className="flex gap-4">
-          {/* Time */}
-          <div className="flex-1">
-            <label htmlFor="cue-time" className="sr-only">Time</label>
-            <input
-              id="cue-time"
-              name="time"
-              type="text"
-              value={time}
-              onChange={(e) => setTime(e.target.value)}
-              placeholder="MM:SS"
-              className="w-full p-3 border border-gray-200 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none transition"
-              required
-            />
+        <div className="px-3 sm:px-4 pb-3 sm:pb-4">
+          <form onSubmit={handleSubmit} className="space-y-3 sm:space-y-4">
+          {/* Time and Title row - with larger text */}
+          <div className="flex gap-3 sm:gap-4 items-center">
+            {/* Time input */}
+            <div className="w-24 sm:w-28"> {/* Slightly wider to accommodate larger text */}
+              <label htmlFor="cue-time" className="sr-only">Time</label>
+              <input
+                id="cue-time"
+                name="time"
+                type="text"
+                value={time}
+                onChange={(e) => setTime(e.target.value)}
+                placeholder="MM:SS"
+                className="w-full p-3 border-2 border-black rounded-lg focus:border-black focus:ring-2 focus:ring-gray-300 outline-none transition text-base sm:text-lg h-[50px] sm:h-[56px]"
+                required
+              />
+            </div>
+
+            {/* Title input */}
+            <div className="flex-1">
+              <label htmlFor="cue-title" className="sr-only">Title</label>
+              <input
+                id="cue-title"
+                name="title"
+                type="text"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="Cue title"
+                className="w-full p-3 border-2 border-black rounded-lg focus:border-black focus:ring-2 focus:ring-gray-300 outline-none transition text-base sm:text-lg h-[50px] sm:h-[56px]"
+                required
+              />
+            </div>
           </div>
 
-          {/* Title */}
-          <div className="flex-[3]">
-            <label htmlFor="cue-title" className="sr-only">Title</label>
-            <input
-              id="cue-title"
-              name="title"
-              type="text"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="[Title of Cue Point]"
-              className="w-full p-3 border border-gray-200 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none transition"
-              required
+          {/* Notes - with larger text */}
+          <div className="mt-3 sm:mt-4">
+            <label htmlFor="cue-note" className="sr-only">Notes</label>
+            <textarea
+              id="cue-note"
+              name="note"
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              placeholder="Add detailed notes about this cue point..."
+              className="w-full p-3 border-2 border-black rounded-lg focus:border-black focus:ring-2 focus:ring-gray-300 outline-none transition text-base sm:text-lg resize-y min-h-[140px]"
+              rows={5}
+              style={{
+                scrollbarWidth: 'thin',
+                scrollbarColor: '#000000 #f1f1f1'
+              }}
             />
           </div>
-        </div>
-
-        {/* Notes */}
-        <label htmlFor="cue-note" className="sr-only">Notes</label>
-        <textarea
-          id="cue-note"
-          name="note"
-          value={note}
-          onChange={(e) => setNote(e.target.value)}
-          placeholder="Add detailed notes about this cue point..."
-          className="w-full p-3 border border-gray-200 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none transition min-h-[120px]"
-        />
 
         {/* Buttons */}
-        <div className="flex justify-end gap-3 pt-2">
+        <div className="flex flex-col sm:flex-row justify-end gap-2 sm:gap-3 pt-2">
           {editingCue && (
             <button
               type="button"
               onClick={onCancel}
-              className="px-5 py-2.5 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition"
+              className="px-4 sm:px-5 py-2 sm:py-2.5 border-2 border-black rounded-lg text-black hover:bg-black hover:text-white transition text-sm sm:text-base order-2 sm:order-1"
             >
               Cancel
             </button>
@@ -232,10 +274,10 @@ const CueForm: FC<CueFormProps> = ({
           <button
             type="submit"
             disabled={isSubmitting}
-            className={`px-5 py-2.5 rounded-lg text-white transition flex items-center gap-2 ${
+            className={`px-4 sm:px-5 py-2 sm:py-2.5 rounded-lg transition flex items-center justify-center gap-2 text-sm sm:text-base order-1 sm:order-2 ${
               isSubmitting 
-                ? 'bg-blue-400 cursor-not-allowed' 
-                : 'bg-blue-600 hover:bg-blue-700'
+                ? 'bg-gray-400 text-white cursor-not-allowed border-2 border-gray-400' 
+                : 'bg-black text-white border-2 border-black hover:bg-gray-800'
             }`}
           >
             {isSubmitting ? (

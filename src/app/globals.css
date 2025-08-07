@@ -2,23 +2,23 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Custom scrollbar */
+/* Custom scrollbar with brand colors */
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #f1f1f1;
+  background: #F9FAFB;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #888;
+  background: gray;
   border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #555;
+  background: #000000;
 }
 
 /* Smooth transitions */
@@ -26,9 +26,19 @@
   transition: background-color 0.2s, border-color 0.2s, box-shadow 0.2s;
 }
 
-/* Focus styles */
+/* Focus styles with brand colors */
 input:focus, textarea:focus, select:focus {
-  @apply outline-none ring-2 ring-blue-200 border-blue-500;
+  @apply outline-none ring-2 border-2;
+  --tw-ring-color: red;
+  border-color: #9966cb;
+}
+
+/* Monospace font for time inputs */
+input[placeholder*="MM:SS"], 
+input[placeholder*="time"],
+.time-display {
+  font-family: 'Courier New', 'Monaco', 'Menlo', monospace;
+  letter-spacing: 0.5px;
 }
 
 /* Add to your global CSS */
