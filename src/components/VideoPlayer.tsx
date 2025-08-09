@@ -1,3 +1,4 @@
+import Image from 'next/image';
 import { useEffect, useRef, useState, useMemo, memo, useCallback } from 'react';
 
 // Types
@@ -184,7 +185,7 @@ export default function VideoPlayer({
       const originalConsoleWarn = console.warn;
       const originalConsoleError = console.error;
       
-      const suppressYouTubeWarnings = (message: any, ...args: any[]) => {
+  const suppressYouTubeWarnings = (message: unknown, ...args: unknown[]) => {
         const messageStr = String(message);
         if (messageStr.includes('postMessage') && 
             messageStr.includes('youtube.com') && 
@@ -194,7 +195,7 @@ export default function VideoPlayer({
         originalConsoleWarn(message, ...args);
       };
       
-      const suppressYouTubeErrors = (message: any, ...args: any[]) => {
+  const suppressYouTubeErrors = (message: unknown, ...args: unknown[]) => {
         const messageStr = String(message);
         if (messageStr.includes('postMessage') && 
             messageStr.includes('youtube.com') && 
@@ -289,7 +290,7 @@ export default function VideoPlayer({
       if (debug) console.error('YT init error:', error);
       setApiError(true);
     }
-  }, [videoId, playerVars, debug]);
+  }, [videoId, playerVars, debug, onPlayStateChange, onVideoEnded]);
 
   // Load YouTube API
   useEffect(() => {
@@ -433,7 +434,7 @@ export default function VideoPlayer({
   // Render
   return (
     <div 
-      className={`relative w-full bg-black ${fullHeight ? 'h-screen' : ''}`}
+      className={`relative w-full bg-black rounded-xl shadow-lg border-2 border-Borders ${fullHeight ? 'h-screen' : ''}`}
       style={!fullHeight ? { paddingBottom: `${100/aspectRatio}%` } : {}}
     >
       {/* Upload Area (when no video loaded) */}
@@ -463,7 +464,7 @@ export default function VideoPlayer({
                   <svg className="w-12 h-12 mx-auto text-gray-400 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
                   </svg>
-                  <p className="text-gray-300 font-medium">Drag & drop a video file or click to browse</p>
+                  <p className="text-gray-300 font-medium">Drag &amp; drop a video file or click to browse</p>
                   <p className="text-gray-500 text-sm mt-1">Supports MP4, WebM, MOV</p>
                 </>
               )}
@@ -479,10 +480,13 @@ export default function VideoPlayer({
           className="absolute inset-0"
         >
           {!playerReady && (
-            <img
+            <Image
               src={`https://img.youtube.com/vi/${videoId}/mqdefault.jpg`}
               alt="Video thumbnail"
+              fill
               className="absolute inset-0 w-full h-full object-cover opacity-50"
+              sizes="100vw"
+              priority
             />
           )}
         </div>

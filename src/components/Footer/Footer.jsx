@@ -10,7 +10,7 @@ const Footer = () => {
         <div className="footer-section">
           <div className="logo-container">
             <img 
-              src="/Logo.png" 
+              src="/LogoInv.png" 
               alt="OnBeat Logo" 
               className="footer-logo" 
             />

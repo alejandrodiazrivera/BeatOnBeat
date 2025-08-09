@@ -176,7 +176,7 @@ const MetronomeControls: FC<MetronomeControlsProps> = ({
           {/* Start Button - Resets to beat 1 and starts metronome */}
           <button
             onClick={onStart}
-            className="px-4 py-2 rounded-lg transition-colors duration-200 bg-Stop hover:bg-Pause text-white flex items-center justify-center font-medium"
+            className="px-4 py-2 rounded-lg transition-colors duration-200 bg-Stop hover:bg-Pause text-white flex items-center justify-center font-medium start-metronome-btn"
             title="Start metronome"
           >
             <RotateCcw size={20} />
