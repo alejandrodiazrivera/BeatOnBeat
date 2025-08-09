@@ -1,17 +1,7 @@
-import { useEffect, useRef, useState, useMemo, memo, useCallback } from 'react';
+import { useEffect, useRef, useState, memo, useCallback } from 'react';
 
 // Types
-interface YTPlayer {
-  playVideo: () => void;
-  pauseVideo: () => void;
-  seekTo: (seconds: number, allowSeekAhead: boolean) => void;
-  setPlaybackRate: (suggestedRate: number) => void;
-  destroy: () => void;
-  getCurrentTime: () => number;
-}
-
 interface VideoPlayerProps {
-  videoId?: string | null;
   currentTime: number;
   currentBeat: number;
   currentCue?: CuePoint | null;
@@ -19,6 +9,7 @@ interface VideoPlayerProps {
   isMetronomeRunning?: boolean;
   isPlaying: boolean;
   playbackSpeed?: number;
+  videoFile?: File | null;
   onTimeUpdate?: (time: number) => void;
   onVideoElementReady?: (videoElement: HTMLVideoElement) => void;
   onVideoFileUploaded?: (file: File) => void;
@@ -36,49 +27,20 @@ interface CuePoint {
   note?: string;
 }
 
-declare global {
-  interface Window {
-    YT: {
-      Player: new (element: string | HTMLElement, options: YTPlayerOptions) => YTPlayer;
-      PlayerState: {
-        PLAYING: number;
-        PAUSED: number;
-        ENDED: number;
-      };
-    };
-    onYouTubeIframeAPIReady: (() => void) | null;
-  }
-}
-
-interface YTPlayerOptions {
-  height: string;
-  width: string;
-  videoId: string;
-  playerVars: Record<string, number>;
-  events: {
-    onReady: () => void;
-    onStateChange: (event: { data: number }) => void;
-    onError: () => void;
-  };
-}
-
 // Overlay Components (memoized)
 const TimeOverlay = memo(({ currentTime }: { currentTime: number }) => {
-  // Format time with milliseconds for precision
   const formatTimeDisplay = (time: number) => {
     const totalMs = Math.floor(time * 1000);
     const hours = Math.floor(totalMs / 3600000);
     const minutes = Math.floor((totalMs % 3600000) / 60000);
     const seconds = Math.floor((totalMs % 60000) / 1000);
     const milliseconds = totalMs % 1000;
-    
     if (hours > 0) {
       return `${hours}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}.${milliseconds.toString().padStart(3, '0')}`;
     } else {
       return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}.${milliseconds.toString().padStart(3, '0')}`;
     }
   };
-
   return (
     <div className="absolute top-2 left-2 bg-black/70 text-white p-1 md:p-2 rounded text-xs md:text-base font-mono">
       {formatTimeDisplay(currentTime)}
@@ -108,7 +70,6 @@ const CueOverlay = memo(({ cue }: { cue: CuePoint }) => (
 
 // Main Component
 export default function VideoPlayer({
-  videoId,
   currentTime,
   currentBeat = 1,
   currentCue,
@@ -116,6 +77,7 @@ export default function VideoPlayer({
   isMetronomeRunning = false,
   isPlaying,
   playbackSpeed = 1,
+  videoFile,
   onTimeUpdate,
   onVideoElementReady,
   onVideoFileUploaded,
@@ -126,234 +88,39 @@ export default function VideoPlayer({
   fullHeight = false,
   allowUploads = true
 }: VideoPlayerProps) {
-  // Refs
-  const playerRef = useRef<YTPlayer | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
-  
-  // State
-  const [playerReady, setPlayerReady] = useState(false);
-  const [apiError, setApiError] = useState(false);
+
   const [videoSrc, setVideoSrc] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [userInteracted, setUserInteracted] = useState(false);
 
-  // Memoized player vars
-  const playerVars = useMemo(() => ({
-    autoplay: isPlaying ? 1 : 0,
-    controls: 0,
-    disablekb: 1,
-    rel: 0,
-    modestbranding: 1
-  }), [isPlaying]);
-
-  // Cleanup YouTube player
-  const cleanupPlayer = useCallback(() => {
-    if (playerRef.current) {
-      try {
-        playerRef.current.destroy();
-      } catch (error) {
-        if (debug) console.error('Cleanup error:', error);
-      }
-      playerRef.current = null;
+  // Handle external video file prop (from upload button)
+  useEffect(() => {
+    if (videoFile && videoFile.type.startsWith('video/')) {
+      setIsUploading(true);
+      setTimeout(() => {
+        setVideoSrc(URL.createObjectURL(videoFile));
+        setIsUploading(false);
+      }, 300);
     }
-    setPlayerReady(false);
-  }, [debug]);
+  }, [videoFile]);
 
   // Handle file upload
   const handleFileUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file && file.type.startsWith('video/')) {
       setIsUploading(true);
-      setTimeout(() => { // Simulate processing
+      setTimeout(() => {
         setVideoSrc(URL.createObjectURL(file));
-        cleanupPlayer();
         setIsUploading(false);
-        // Notify parent about uploaded file
         onVideoFileUploaded?.(file);
       }, 300);
     }
-  }, [onVideoFileUploaded, cleanupPlayer]);
-
-  // Initialize YouTube player
-  const initializePlayer = useCallback(() => {
-    if (!containerRef.current || !videoId) return;
-
-    try {
-      // Suppress YouTube API cross-origin warnings in development
-      const originalConsoleWarn = console.warn;
-      const originalConsoleError = console.error;
-      
-      const suppressYouTubeWarnings = (message: any, ...args: any[]) => {
-        const messageStr = String(message);
-        if (messageStr.includes('postMessage') && 
-            messageStr.includes('youtube.com') && 
-            messageStr.includes('localhost')) {
-          return; // Suppress YouTube cross-origin warnings in development
-        }
-        originalConsoleWarn(message, ...args);
-      };
-      
-      const suppressYouTubeErrors = (message: unknown, ...args: unknown[]) => {
-        const messageStr = String(message);
-        if (messageStr.includes('postMessage') && 
-            messageStr.includes('youtube.com') && 
-            messageStr.includes('localhost')) {
-          return; // Suppress YouTube cross-origin errors in development
-        }
-        originalConsoleError(message, ...args);
-      };
-      
-      // Temporarily override console methods
-      console.warn = suppressYouTubeWarnings;
-      console.error = suppressYouTubeErrors;
-      
-      // Add a small delay to ensure the container is ready
-      setTimeout(() => {
-        if (!containerRef.current) return;
-        
-        try {
-          playerRef.current = new window.YT.Player(containerRef.current, {
-            height: '100%',
-            width: '100%',
-            videoId,
-            playerVars,
-            events: {
-              onReady: () => {
-                // Restore original console methods
-                console.warn = originalConsoleWarn;
-                console.error = originalConsoleError;
-                
-                // Additional check to ensure player is fully ready
-                if (playerRef.current && typeof playerRef.current.playVideo === 'function') {
-                  setPlayerReady(true);
-                  if (debug) console.log('YouTube player ready and verified');
-                } else {
-                  if (debug) console.warn('YouTube player created but methods not available');
-                  setTimeout(() => {
-                    if (playerRef.current && typeof playerRef.current.playVideo === 'function') {
-                      setPlayerReady(true);
-                      if (debug) console.log('YouTube player methods now available');
-                    }
-                  }, 500);
-                }
-              },
-            onStateChange: (event) => {
-              if (debug) console.log('Player state:', event.data);
-              // Sync YouTube player state with React state
-              if (onPlayStateChange) {
-                const isNowPlaying = event.data === window.YT.PlayerState.PLAYING;
-                const isNowPaused = event.data === window.YT.PlayerState.PAUSED;
-                const isEnded = event.data === window.YT.PlayerState.ENDED;
-                
-                if (debug) console.log('YouTube state change:', { 
-                  isNowPlaying, 
-                  isNowPaused, 
-                  isEnded,
-                  eventData: event.data 
-                });
-                
-                if (isNowPlaying) {
-                  onPlayStateChange(true);
-                } else if (isNowPaused || isEnded) {
-                  onPlayStateChange(false);
-                }
-                
-                // Handle video end event
-                if (isEnded && onVideoEnded) {
-                  if (debug) console.log('🎬 Video ended, calling onVideoEnded');
-                  onVideoEnded();
-                    // Reset YouTube video to beginning after end (for testing)
-                    if (playerRef.current && typeof playerRef.current.seekTo === 'function') {
-                      playerRef.current.seekTo(0, true);
-                      if (debug) console.log('🔄 YouTube video reset to start after end');
-                    }
-                }
-              }
-            },
-            onError: () => {
-              // Restore original console methods in case of error
-              console.warn = originalConsoleWarn;
-              console.error = originalConsoleError;
-              
-              if (debug) console.error('YouTube player error');
-              setApiError(true);
-            }
-          }
-        });
-        } catch (playerError) {
-          // Restore original console methods in case of player creation error
-          console.warn = originalConsoleWarn;
-          console.error = originalConsoleError;
-          
-          if (debug) console.error('YT player creation error:', playerError);
-          setApiError(true);
-        }
-      }, 100);
-    } catch (error) {
-      if (debug) console.error('YT init error:', error);
-      setApiError(true);
-    }
-  }, [videoId, playerVars, debug]);
-
-  // Load YouTube API
-  useEffect(() => {
-    if (!videoId) return;
-
-    if (window.YT) {
-      initializePlayer();
-      return;
-    }
-
-    const tag = document.createElement('script');
-    tag.src = "https://www.youtube.com/iframe_api";
-    tag.async = true;
-    tag.id = 'youtube-iframe-script';
-
-    window.onYouTubeIframeAPIReady = initializePlayer;
-    document.body.appendChild(tag);
-
-    return () => {
-      cleanupPlayer();
-      document.getElementById('youtube-iframe-script')?.remove();
-      window.onYouTubeIframeAPIReady = null;
-    };
-  }, [videoId, initializePlayer, cleanupPlayer]);
+  }, [onVideoFileUploaded]);
 
   // Play/pause control
   useEffect(() => {
-    console.log('🎞️ VideoPlayer play/pause effect triggered:', {
-      isPlaying,
-      videoId,
-      playerReady,
-      hasPlayerRef: !!playerRef.current,
-      hasVideoRef: !!videoRef.current
-    });
-
-    if (videoId) {
-      if (!playerReady || !playerRef.current) {
-        console.log('⚠️ YouTube player not ready yet');
-        return;
-      }
-      
-      // Add safety check to ensure the player has the required methods
-      try {
-        if (typeof playerRef.current.playVideo === 'function' && typeof playerRef.current.pauseVideo === 'function') {
-          console.log(`🎞️ YouTube: ${isPlaying ? 'Playing' : 'Pausing'} video`);
-          if (isPlaying) {
-            playerRef.current.playVideo();
-          } else {
-            playerRef.current.pauseVideo();
-          }
-        } else {
-          if (debug) console.warn('YouTube player methods not available yet');
-        }
-      } catch (error) {
-        if (debug) console.error('YouTube player control error:', error);
-        setApiError(true);
-      }
-    } else if (videoRef.current) {
-      console.log(`🎞️ Local video: ${isPlaying ? 'Playing' : 'Pausing'} video`);
+    if (videoRef.current) {
       if (isPlaying) {
         videoRef.current.play().catch(e => {
           if (debug) console.error('Play error:', e);
@@ -361,72 +128,39 @@ export default function VideoPlayer({
       } else {
         videoRef.current.pause();
       }
-    } else {
-      console.log('⚠️ No video player available');
     }
-  }, [isPlaying, playerReady, videoId, debug]);
+  }, [isPlaying, debug]);
 
   // Seek control
   useEffect(() => {
-    if (videoId) {
-      if (!playerReady || !playerRef.current) return;
-      
-      try {
-        if (typeof playerRef.current.getCurrentTime === 'function' && typeof playerRef.current.seekTo === 'function') {
-          if (Math.abs(playerRef.current.getCurrentTime() - currentTime) > 0.5) {
-            playerRef.current.seekTo(currentTime, true);
-          }
-        } else {
-          if (debug) console.warn('YouTube player seek methods not available yet');
-        }
-      } catch (error) {
-        if (debug) console.error('YouTube player seek error:', error);
-      }
-    } else if (videoRef.current) {
+    if (videoRef.current) {
       if (Math.abs(videoRef.current.currentTime - currentTime) > 0.5) {
         videoRef.current.currentTime = currentTime;
       }
     }
-  }, [currentTime, playerReady, videoId, debug]);
+  }, [currentTime, debug]);
 
   // Playback speed
   useEffect(() => {
-    if (videoId) {
-      if (!playerReady || !playerRef.current) return;
-      
-      try {
-        if (typeof playerRef.current.setPlaybackRate === 'function') {
-          playerRef.current.setPlaybackRate(playbackSpeed);
-        } else {
-          if (debug) console.warn('YouTube player setPlaybackRate method not available yet');
-        }
-      } catch (error) {
-        if (debug) console.error('YouTube player playback speed error:', error);
-      }
-    } else if (videoRef.current) {
+    if (videoRef.current) {
       videoRef.current.playbackRate = playbackSpeed;
     }
-  }, [playbackSpeed, playerReady, videoId, debug]);
+  }, [playbackSpeed, debug]);
 
   // Time update sync
   useEffect(() => {
     if (!onTimeUpdate) return;
-    
     const syncTime = () => {
       try {
-        const time = videoId 
-          ? (playerRef.current && typeof playerRef.current.getCurrentTime === 'function' 
-              ? playerRef.current.getCurrentTime() : 0)
-          : (videoRef.current?.currentTime || 0);
+        const time = videoRef.current?.currentTime || 0;
         onTimeUpdate(time);
       } catch (error) {
         if (debug) console.error('Time sync error:', error);
       }
     };
-
     const interval = setInterval(syncTime, 200);
     return () => clearInterval(interval);
-  }, [onTimeUpdate, videoId, debug]);
+  }, [onTimeUpdate, debug]);
 
   // Cleanup local video URL
   useEffect(() => {
@@ -442,7 +176,7 @@ export default function VideoPlayer({
       style={!fullHeight ? { paddingBottom: `${100/aspectRatio}%` } : {}}
     >
       {/* Upload Area (when no video loaded) */}
-      {allowUploads && !videoId && !videoSrc && (
+      {allowUploads && !videoSrc && (
         <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 p-4">
           <label className={`
             flex flex-col items-center justify-center 
@@ -474,22 +208,6 @@ export default function VideoPlayer({
               )}
             </div>
           </label>
-        </div>
-      )}
-
-      {/* YouTube Player */}
-      {videoId && (
-        <div 
-          ref={containerRef} 
-          className="absolute inset-0"
-        >
-          {!playerReady && (
-            <img
-              src={`https://img.youtube.com/vi/${videoId}/mqdefault.jpg`}
-              alt="Video thumbnail"
-              className="absolute inset-0 w-full h-full object-cover opacity-50"
-            />
-          )}
         </div>
       )}
 
@@ -529,40 +247,14 @@ export default function VideoPlayer({
       {/* Unmute indicator for local videos */}
       {videoSrc && !userInteracted && (
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-          <div className="bg-black/70 text-white px-4 py-2 rounded-lg flex items-center gap-2">
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" clipRule="evenodd" />
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" />
-            </svg>
-            <span className="text-sm">Click to enable sound</span>
-          </div>
-        </div>
-      )}
-
-      {/* Loading Indicator */}
-      {videoId && !playerReady && !apiError && (
-        <div className="absolute inset-0 flex items-center justify-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-white"></div>
+          
         </div>
       )}
 
       {/* Error State */}
-      {apiError && (
-        <div className="absolute inset-0 flex items-center justify-center bg-red-900/50 text-white p-4">
-          <div className="text-center">
-            <h3 className="font-bold mb-2">Player Error</h3>
-            <button 
-              onClick={() => window.location.reload()}
-              className="bg-white text-black px-4 py-2 rounded hover:bg-gray-200"
-            >
-              Reload Player
-            </button>
-          </div>
-        </div>
-      )}
-
+      {/* You can keep or remove this block as needed */}
       {/* Overlays */}
-      {overlaysVisible && (playerReady || videoSrc) && (
+      {overlaysVisible && videoSrc && (
         <div className="absolute inset-0 pointer-events-none">
           <TimeOverlay currentTime={currentTime} />
           {isMetronomeRunning && (

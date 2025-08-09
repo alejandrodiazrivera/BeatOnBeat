@@ -9,8 +9,12 @@ declare global {
 type AudioNodeRef = OscillatorNode | null;
 type TimeMode = '8-beat' | 'flamenco-12';
 
-export const useMetronome = (initialBpm = 100) => {
-  const [bpm, setBpm] = useState<number>(initialBpm);
+export const useMetronome = () => {
+  // Live beat correction state
+  const correctionRef = useRef<{offset: number, beatsRemaining: number, step: number} | null>(null);
+  const isLockedRef = useRef(false);
+
+  const [bpm, setBpm] = useState<number | null>(null);
   const [isRunning, setIsRunning] = useState<boolean>(false);
   const [currentBeat, setCurrentBeat] = useState<number>(1);
   const [timeMode, setTimeMode] = useState<TimeMode>('8-beat');
@@ -161,29 +165,35 @@ export const useMetronome = (initialBpm = 100) => {
     setIsMuted(prev => !prev);
   }, []);
 
+  // Call this when lock state changes in parent
+  const setLocked = useCallback((locked: boolean) => {
+    isLockedRef.current = locked;
+    if (!locked) correctionRef.current = null;
+  }, []);
+
   const start = useCallback(() => {
     // Prevent multiple timers - always clear existing timer first
     if (timerRef.current) {
       clearInterval(timerRef.current);
       timerRef.current = null;
     }
-    
+    // If BPM is unknown, set to 100 before starting
+    if (bpm === null) {
+      setBpm(100);
+    }
     // If already running, stop first to prevent double timers
     if (isRunning) {
       setIsRunning(false);
-      // Use setTimeout to ensure state update completes before restarting
       setTimeout(() => {
         setIsRunning(true);
         startTimeRef.current = Date.now();
-        
         const config = getTimeModeConfig(timeMode);
         const startBeat = (timeMode === 'flamenco-12' && currentBeat === 12) ? 12 : 1;
         if (startBeat === 1) {
           setCurrentBeat(1);
         }
         playClick(startBeat);
-        
-        const interval = 60000 / bpm;
+        const interval = 60000 / (bpm === null ? 100 : bpm);
         timerRef.current = setInterval(() => {
           setCurrentBeat(prev => {
             const nextBeat = prev === config.beatsPerCycle ? 1 : prev + 1;
@@ -194,20 +204,15 @@ export const useMetronome = (initialBpm = 100) => {
       }, 10);
       return;
     }
-    
     const config = getTimeModeConfig(timeMode);
     setIsRunning(true);
-    startTimeRef.current = Date.now(); // Record start time for synchronization
-    
-    // For flamenco mode, if currentBeat is already set to 12, start there
-    // Otherwise, start at beat 1 for normal operation
+    startTimeRef.current = Date.now();
     const startBeat = (timeMode === 'flamenco-12' && currentBeat === 12) ? 12 : 1;
     if (startBeat === 1) {
       setCurrentBeat(1);
     }
     playClick(startBeat);
-    
-    const interval = 60000 / bpm;
+    const interval = 60000 / (bpm === null ? 100 : bpm);
     timerRef.current = setInterval(() => {
       setCurrentBeat(prev => {
         const nextBeat = prev === config.beatsPerCycle ? 1 : prev + 1;
@@ -230,43 +235,41 @@ export const useMetronome = (initialBpm = 100) => {
   // This maintains beat synchronization by calculating the proper timing offset
   useEffect(() => {
     if (isRunning && timerRef.current) {
-      // Clear the old timer first to prevent multiple timers
       clearInterval(timerRef.current);
       timerRef.current = null;
-      
-      // Calculate proper timing to maintain synchronization with original start time
       const config = getTimeModeConfig(timeMode);
-      const beatDuration = 60000 / bpm; // Duration of one beat in milliseconds
+      const beatDuration = 60000 / (bpm === null ? 100 : bpm);
       const elapsedTime = Date.now() - startTimeRef.current;
       const elapsedBeats = Math.floor(elapsedTime / beatDuration);
       const timeInCurrentBeat = elapsedTime % beatDuration;
       const timeToNextBeat = beatDuration - timeInCurrentBeat;
-      
-      // Ensure we're on the correct beat based on elapsed time
       const expectedBeat = (elapsedBeats % config.beatsPerCycle) + 1;
       setCurrentBeat(expectedBeat);
-      
-      // Start the next beat at the proper time to maintain sync
+
+      // Correction logic: apply step if active
+      let correctionStep = 0;
+      if (correctionRef.current && correctionRef.current.beatsRemaining > 0) {
+        correctionStep = correctionRef.current.step;
+        correctionRef.current.beatsRemaining -= 1;
+        if (correctionRef.current.beatsRemaining === 0) correctionRef.current = null;
+      }
+
       const timeoutId = setTimeout(() => {
-        if (isRunning && !timerRef.current) { // Double-check conditions
+        if (isRunning && !timerRef.current) {
           setCurrentBeat(prev => {
             const nextBeat = prev === config.beatsPerCycle ? 1 : prev + 1;
             playClick(nextBeat);
             return nextBeat;
           });
-          
-          // Now start the regular interval
           timerRef.current = setInterval(() => {
             setCurrentBeat(prev => {
               const nextBeat = prev === config.beatsPerCycle ? 1 : prev + 1;
               playClick(nextBeat);
               return nextBeat;
             });
-          }, beatDuration);
+          }, beatDuration + correctionStep);
         }
-      }, timeToNextBeat);
-      
-      // Cleanup timeout if component unmounts or dependencies change
+      }, timeToNextBeat + correctionStep);
       return () => {
         clearTimeout(timeoutId);
       };
@@ -307,67 +310,67 @@ export const useMetronome = (initialBpm = 100) => {
   }, [isRunning, playClick, timeMode]);
 
   const adjustBpm = useCallback((amount: number) => {
-    setBpmPrecise(bpm + amount);
+  setBpmPrecise((bpm === null ? 100 : bpm) + amount);
   }, [bpm, setBpmPrecise]);
 
   const tapTempo = useCallback(() => {
     const now = Date.now();
-    tapTimesRef.current = [...tapTimesRef.current, now].slice(-8); // Keep more taps for better accuracy
-    
+    tapTimesRef.current = [...tapTimesRef.current, now].slice(-8);
+
+    // If locked, use tap for correction
+    if (isLockedRef.current) {
+      // Correction logic: compare tap to closest predicted beat
+      // For demo, assume predicted beats are every beatDuration from startTimeRef
+      if (!bpm) return;
+      const beatDuration = 60000 / bpm;
+      const elapsed = now - startTimeRef.current;
+      const predictedBeatNum = Math.round(elapsed / beatDuration);
+      const predictedBeatTime = startTimeRef.current + predictedBeatNum * beatDuration;
+      const offset = now - predictedBeatTime;
+      // Only correct if within ±100ms
+      if (Math.abs(offset) <= 100) {
+        // Smooth correction over next 8 beats
+        correctionRef.current = {
+          offset,
+          beatsRemaining: 8,
+          step: offset / 8
+        };
+      }
+      return;
+    }
+
+    // Normal tap tempo logic (unlocked)
     if (tapTimesRef.current.length > 1) {
       const intervals = [];
       for (let i = 1; i < tapTimesRef.current.length; i++) {
         intervals.push(tapTimesRef.current[i] - tapTimesRef.current[i - 1]);
       }
-      
       const avgInterval = intervals.reduce((sum, val) => sum + val, 0) / intervals.length;
-      
-      // Calculate BPM based on time mode and intelligent pattern detection
       let tappedBpm;
-      
       if (timeMode === '8-beat') {
-        // Two 4/4 measures: Users typically tap quarter notes
-        // Each tap = one quarter note = one metronome beat
         tappedBpm = 60000 / avgInterval;
       } else if (timeMode === 'flamenco-12') {
-        // Flamenco 12-beat compás: More complex - users might tap different patterns
-        
-        // Check if user is tapping on strong beats (3, 6, 8, 10, 12)
-        // If intervals are consistent and we have enough taps, try to detect pattern
         if (tapTimesRef.current.length >= 6) {
-          // Calculate variance to see if tapping is regular
           const variance = intervals.reduce((sum, interval) => {
             return sum + Math.pow(interval - avgInterval, 2);
           }, 0) / intervals.length;
-          
-          const isRegularTapping = variance < (avgInterval * 0.15); // Slightly more tolerance for flamenco
-          
+          const isRegularTapping = variance < (avgInterval * 0.15);
           if (isRegularTapping) {
-            // Check if they're tapping on accented beats only
-            // In flamenco, strong beats are not evenly spaced, so this is more complex
             const possibleQuarterTempo = 60000 / avgInterval;
-            
-            // For flamenco, we'll be more conservative and assume quarter note tapping
-            // unless the tempo seems too fast (suggesting they're tapping accents only)
             if (possibleQuarterTempo > 200) {
-              // Too fast - they might be tapping quarter notes of a slower tempo
-              tappedBpm = possibleQuarterTempo * 0.6; // Adjust down
+              tappedBpm = possibleQuarterTempo * 0.6;
             } else {
               tappedBpm = possibleQuarterTempo;
             }
           } else {
-            // Irregular tapping, assume quarter notes
             tappedBpm = 60000 / avgInterval;
           }
         } else {
-          // Not enough data, assume quarter note tapping
           tappedBpm = 60000 / avgInterval;
         }
       } else {
-        // Default: treat each tap as quarter note
         tappedBpm = 60000 / avgInterval;
       }
-      
       setBpmPrecise(tappedBpm);
     }
   }, [setBpmPrecise, timeMode]);

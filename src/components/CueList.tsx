@@ -11,6 +11,12 @@ interface CueListProps {
 }
 
 const CueList: FC<CueListProps> = ({ cuePoints, onEdit, onDelete, onJump }) => {
+  // Helper to format MM:SS
+  const formatTimeMMSS = (time: string) => {
+    const [mm, ss] = time.split(':');
+    const seconds = ss.split('.')[0];
+    return `${mm}:${seconds}`;
+  };
   if (cuePoints.length === 0) {
     return (
       <div className="bg-white rounded-xl shadow-lg border-2 border-Borders p-6 mb-6">
@@ -46,7 +52,7 @@ const CueList: FC<CueListProps> = ({ cuePoints, onEdit, onDelete, onJump }) => {
                         </span>
                       )}
                       <div className="text-sm">
-                        <strong className="text-Time time-display">{cue.time}</strong>
+                        <strong className="text-Time time-display">{formatTimeMMSS(cue.time)}</strong>
                       </div>
                     </div>
                   </div>

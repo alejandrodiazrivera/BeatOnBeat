@@ -2,16 +2,10 @@ import { FC, useState, useEffect, useRef } from 'react';
 import { CuePoint } from '../types/types';
 
 // Utility functions for precise time handling
-const formatTimeWithMilliseconds = (timeInSeconds: number): string => {
+const formatTimeMMSS = (timeInSeconds: number): string => {
   const minutes = Math.floor(timeInSeconds / 60);
   const seconds = Math.floor(timeInSeconds % 60);
-  const milliseconds = Math.floor((timeInSeconds % 1) * 1000);
-  
-  if (milliseconds === 0) {
-    return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-  } else {
-    return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}.${milliseconds.toString().padStart(3, '0')}`;
-  }
+  return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
 };
 
 interface CueFormProps {
@@ -55,12 +49,15 @@ const CueForm: FC<CueFormProps> = ({
     onPause();
 
     if (editingCue) {
-      setTime(editingCue.time);
+      // If editing, strip milliseconds if present
+      const [mm, ss] = editingCue.time.split(':');
+      const seconds = ss.split('.')[0];
+      setTime(`${mm}:${seconds}`);
       setTitle(editingCue.title);
       setNote(editingCue.note);
       setBeat(editingCue.beat);
     } else {
-      const formattedTime = formatTimeWithMilliseconds(currentTime);
+      const formattedTime = formatTimeMMSS(currentTime);
       setTime(formattedTime);
       setTitle('');
       setNote('');
@@ -153,7 +150,7 @@ const CueForm: FC<CueFormProps> = ({
   return (
     <div 
       ref={formRef}
-      className={`mb-6 bg-white rounded-xl shadow-lg border-2 border-black w-full max-w-[calc(100vw-2rem)] sm:max-w-lg ${isMobile ? '' : (isDragging ? 'cursor-grabbing' : 'cursor-grab')}`}
+      className={`mb-6 bg-white rounded-xl shadow-lg border-2 border-black w-full max-w-[calc(100vw-2rem)] sm:max-w-lg font-sans ${isMobile ? '' : (isDragging ? 'cursor-grabbing' : 'cursor-grab')}`}
       style={isMobile
         ? {
             position: 'fixed',
@@ -221,7 +218,7 @@ const CueForm: FC<CueFormProps> = ({
                 value={time}
                 onChange={(e) => setTime(e.target.value)}
                 placeholder="MM:SS"
-                className="w-full p-3 border-2 border-black rounded-lg focus:border-black focus:ring-2 focus:ring-gray-300 outline-none transition text-base sm:text-lg h-[50px] sm:h-[56px]"
+                className="w-full p-3 border-2 border-black rounded-lg focus:border-black focus:ring-2 focus:ring-gray-300 outline-none transition text-base sm:text-lg h-[50px] sm:h-[56px] font-sans"
                 required
               />
             </div>
@@ -236,7 +233,7 @@ const CueForm: FC<CueFormProps> = ({
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 placeholder="Cue title"
-                className="w-full p-3 border-2 border-black rounded-lg focus:border-black focus:ring-2 focus:ring-gray-300 outline-none transition text-base sm:text-lg h-[50px] sm:h-[56px]"
+                className="w-full p-3 border-2 border-black rounded-lg focus:border-black focus:ring-2 focus:ring-gray-300 outline-none transition text-base sm:text-lg h-[50px] sm:h-[56px] font-sans"
                 required
               />
             </div>
@@ -251,7 +248,7 @@ const CueForm: FC<CueFormProps> = ({
               value={note}
               onChange={(e) => setNote(e.target.value)}
               placeholder="Add detailed notes about this cue point..."
-              className="w-full p-3 border-2 border-black rounded-lg focus:border-black focus:ring-2 focus:ring-gray-300 outline-none transition text-base sm:text-lg resize-y min-h-[140px]"
+              className="w-full p-3 border-2 border-black rounded-lg focus:border-black focus:ring-2 focus:ring-gray-300 outline-none transition text-base sm:text-lg resize-y min-h-[140px] font-sans"
               rows={5}
               style={{
                 scrollbarWidth: 'thin',

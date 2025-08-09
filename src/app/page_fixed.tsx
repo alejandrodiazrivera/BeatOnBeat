@@ -4,17 +4,6 @@ import { CuePoint } from '../types/types';
 import { useMetronome } from '../hooks/useMetronome';
 
 // Utility functions for precise time handling
-const formatTimeWithMilliseconds = (timeInSeconds: number): string => {
-  const minutes = Math.floor(timeInSeconds / 60);
-  const seconds = Math.floor(timeInSeconds % 60);
-  const milliseconds = Math.floor((timeInSeconds % 1) * 1000);
-  
-  if (milliseconds === 0) {
-    return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-  } else {
-    return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}.${milliseconds.toString().padStart(3, '0')}`;
-  }
-};
 
 const parseTimeToSeconds = (timeString: string): number => {
   const parts = timeString.split(':');
@@ -93,9 +82,23 @@ export default function Home() {
     const id = extractVideoId(videoUrl);
     if (id) {
       setVideoId(id);
+      setVideoFile(null); // Clear uploaded file when loading YouTube video
       startTimeTracking(true); // Reset time when loading new video
     } else {
       alert('Please enter a valid YouTube URL');
+    }
+  };
+
+  const handleVideoUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      // Clear YouTube video when uploading file
+      setVideoId(null);
+      setVideoUrl('');
+      setVideoFile(file);
+      startTimeTracking(true); // Reset time when loading new video
+      
+      console.log('📁 Video file uploaded:', file.name, 'Size:', (file.size / 1024 / 1024).toFixed(2), 'MB');
     }
   };
 
@@ -449,7 +452,7 @@ export default function Home() {
 
           <div className="mb-4 aspect-video bg-black rounded-lg overflow-hidden">
             <VideoPlayer
-              videoId={videoId}
+              videoFile={videoFile}
               currentTime={currentTime}
               currentBeat={currentBeat}
               currentCue={currentCue}
@@ -482,12 +485,14 @@ export default function Home() {
               onToggleOverlay={handleToggleOverlay}
               overlaysVisible={overlaysVisible}
               playbackSpeed={playbackSpeed}
+              onUploadVideo={handleVideoUpload}
+              uploadButtonId="video-upload-controls"
             />
           </div>
 
           <div className="space-y-6">
             <MetronomeControls
-              bpm={bpm}
+              bpm={bpm ?? 0}
               currentBeat={currentBeat}
               isRunning={isMetronomeRunning}
               timeMode={timeMode}
@@ -497,7 +502,7 @@ export default function Home() {
               onStart={handleStartMetronome}
               onStop={stopMetronome}
               onAdjustBpm={adjustBpm}
-              onBpmChange={(newBpm) => adjustBpm(newBpm - bpm)}
+              onBpmChange={(newBpm) => adjustBpm(newBpm - (bpm ?? 0))}
               onTimeModeChange={setTimeMode}
               onToggleMute={toggleMute}
               onLockSync={handleLockSync}

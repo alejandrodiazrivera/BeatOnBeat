@@ -1,5 +1,5 @@
 import { FC } from 'react';
-import {Play,Pause,Square,Rewind,FastForward, Layers, Layers2,Pin} from 'lucide-react';
+import { Play, Pause, Square, Rewind, FastForward, Layers, Layers2, Pin, Upload } from 'lucide-react';
 
 interface VideoControlsProps {
   onPlay: () => void;
@@ -12,6 +12,8 @@ interface VideoControlsProps {
   onToggleOverlay: () => void;
   overlaysVisible: boolean;
   playbackSpeed?: number;
+  onUploadVideo: (event: React.ChangeEvent<HTMLInputElement>) => void;
+  uploadButtonId?: string;
 }
 
 const VideoControls: FC<VideoControlsProps> = ({
@@ -24,7 +26,9 @@ const VideoControls: FC<VideoControlsProps> = ({
   onAddCue,
   onToggleOverlay,
   overlaysVisible,
-  playbackSpeed = 1
+  playbackSpeed = 1,
+  onUploadVideo,
+  uploadButtonId = 'video-upload-controls',
 }) => {
   const handleSpeedChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     onSpeedChange(parseFloat(e.target.value));
@@ -43,12 +47,12 @@ const VideoControls: FC<VideoControlsProps> = ({
 
       {/* Pause Button */}
       <button
-      onClick={onPause}
-      className="p-2 bg-white border-2 border-Pause text-Pause hover:bg-Pause hover:text-PauseHover rounded-lg transition-colors duration-200 flex items-center justify-center"
-      aria-label="Pause"
-    >
-      <Pause className="w-5 h-5" />
-    </button>
+        onClick={onPause}
+        className="p-2 bg-white border-2 border-Pause text-Pause hover:bg-Pause hover:text-PauseHover rounded-lg transition-colors duration-200 flex items-center justify-center"
+        aria-label="Pause"
+      >
+        <Pause className="w-5 h-5" />
+      </button>
 
       {/* Stop Button */}
       <button
@@ -58,6 +62,22 @@ const VideoControls: FC<VideoControlsProps> = ({
       >
         <Square className="w-5 h-5" />
       </button>
+
+      {/* Upload Video Button */}
+      <button
+        onClick={() => document.getElementById(uploadButtonId)?.click()}
+        className="p-2 bg-black text-white rounded-lg transition-colors duration-200 flex items-center justify-center"
+        aria-label="Upload Video"
+      >
+        <Upload className="w-5 h-5" />
+      </button>
+      <input
+        id={uploadButtonId}
+        type="file"
+        accept="video/*"
+        onChange={onUploadVideo}
+        style={{ display: 'none' }}
+      />
 
       <button
         onClick={onSkipBack}
@@ -96,7 +116,6 @@ const VideoControls: FC<VideoControlsProps> = ({
         aria-label="Add Cue Point"
       >
         <Pin className="w-4 h-4" />
-
       </button>
 
       <button

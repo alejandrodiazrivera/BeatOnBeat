@@ -57,10 +57,12 @@ import CueForm from '../components/CueForm';
 import CueList from '../components/CueList';
 import Header from '../components/Header/Header';
 import Footer from '../components/Footer/Footer';
+import { Upload } from 'lucide-react';
 
 export default function Home() {
   const [videoUrl, setVideoUrl] = useState('');
   const [videoId, setVideoId] = useState<string | null>(null);
+  const [videoFile, setVideoFile] = useState<File | null>(null);
   const [currentTime, setCurrentTime] = useState(0);
   const [cuePoints, setCuePoints] = useState<CuePoint[]>([]);
   const [currentCue, setCurrentCue] = useState<CuePoint | null>(null);
@@ -71,7 +73,6 @@ export default function Home() {
   const [wasVideoPlaying, setWasVideoPlaying] = useState(false);
   const [pausedBeat, setPausedBeat] = useState(1);
   const [playbackSpeed, setPlaybackSpeed] = useState(1);
-  const [videoFile, setVideoFile] = useState<File | null>(null);
   
   // Sync lock state for video-metronome synchronization
   const [isLocked, setIsLocked] = useState(false);
@@ -480,54 +481,29 @@ export default function Home() {
   // Handle sync lock toggle
   const handleLockSync = (syncData: { bpm: number; beat: number; videoTime: number }) => {
     if (syncData.bpm === 0) {
-      // Unlock and reset capture state
+      // Unlock
       setIsLocked(false);
       setSyncReference(null);
-      setIsCapturingSync(false);
-      setCapturedBeats([]);
-      console.log('🔓 Sync unlocked - metronome now free to adjust');
-    } else if (!isCapturingSync) {
-      // Start multi-beat capture sequence (now 8 beats)
-      setIsCapturingSync(true);
-      const firstBeat = {
-        beat: syncData.beat,
-        videoTime: syncData.videoTime,
-        timestamp: Date.now()
-      };
-      setCapturedBeats([firstBeat]);
-      
-      console.log('🎯 Starting multi-beat sync capture. Beat 1/8 captured:', {
-        beat: syncData.beat,
-        videoTime: syncData.videoTime.toFixed(3),
-        message: 'Keep metronome running - capturing next 7 beats...'
-      });
+      console.log('🔓 Sync unlocked');
     } else {
-      // Continue capturing beats
-      const newBeat = {
+      // Lock with current sync reference, without multi-beat tuning
+      setIsLocked(true);
+      const newSyncReference = {
+        bpm: syncData.bpm,
         beat: syncData.beat,
         videoTime: syncData.videoTime,
-        timestamp: Date.now()
+        // Set a default accuracy since we are skipping the multi-beat calculation
+        accuracy: 100 
       };
-      
-      const updatedBeats = [...capturedBeats, newBeat];
-      setCapturedBeats(updatedBeats);
-      
-      console.log(`🎯 Beat ${updatedBeats.length}/8 captured:`, {
-        beat: syncData.beat,
-        videoTime: syncData.videoTime.toFixed(3)
-      });
-      
-      // If we have 8 beats, finalize the sync lock
-      if (updatedBeats.length >= 8) {
-        finalizeSyncLock(updatedBeats, syncData.bpm);
-      }
+      setSyncReference(newSyncReference);
+      console.log('🔒 Sync locked directly at:', newSyncReference);
     }
   };
 
   const finalizeSyncLock = (beatReferences: Array<{beat: number; videoTime: number; timestamp: number}>, initialBpm: number) => {
     if (beatReferences.length < 2) return;
     
-    // Calculate average BPM from captured beats
+  // Calculate average BPM from captured beats (weighted: newer beats count more)
     const intervals: number[] = [];
     for (let i = 1; i < beatReferences.length; i++) {
       const timeDiff = beatReferences[i].videoTime - beatReferences[i-1].videoTime;
@@ -548,11 +524,37 @@ export default function Home() {
       console.log(`  Beat ${idx + 1}: beat=${ref.beat}, videoTime=${ref.videoTime.toFixed(3)}, timestamp=${ref.timestamp}`);
     });
     
-    // Calculate statistics
-    const averageBpm = intervals.reduce((sum, bpm) => sum + bpm, 0) / intervals.length;
-    const variance = intervals.reduce((sum, bpm) => sum + Math.pow(bpm - averageBpm, 2), 0) / intervals.length;
-    const stdDeviation = Math.sqrt(variance);
-    const accuracy = ((averageBpm - stdDeviation) / averageBpm) * 100;
+    // Weighted stats helper (linear weights: 1..n, newest interval gets weight n)
+    let averageBpm: number;
+    let stdDeviation: number;
+    let accuracy: number;
+    if (intervals.length > 0) {
+      const n = intervals.length;
+      const weights = intervals.map((_, idx) => idx + 1);
+      const weightSum = weights.reduce((a, b) => a + b, 0);
+      // Weighted average BPM
+      averageBpm = intervals.reduce((acc, val, idx) => acc + val * weights[idx], 0) / weightSum;
+      // Weighted variance and derived accuracy
+      const weightedVariance = intervals.reduce((acc, val, idx) => {
+        const diff = val - averageBpm!;
+        return acc + weights[idx] * diff * diff;
+      }, 0) / weightSum;
+      stdDeviation = Math.sqrt(weightedVariance);
+      accuracy = ((averageBpm - stdDeviation) / averageBpm) * 100;
+      console.log('⚖️ Weighted BPM averaging applied', {
+        intervals: intervals.map(v => Number(v.toFixed(3))),
+        weights,
+        weightedAverageBpm: Number(averageBpm.toFixed(3)),
+        weightedStdDev: Number(stdDeviation.toFixed(3)),
+        accuracy: Number(accuracy.toFixed(2)) + '%'
+      });
+    } else {
+      // Fallback to initial BPM if no intervals were computed
+      averageBpm = initialBpm;
+      stdDeviation = 0;
+      accuracy = 100;
+      console.log('⚠️ No valid intervals for BPM averaging. Falling back to initial BPM.', { initialBpm });
+    }
     
     // Extrapolate beats for entire video duration (assuming 5 minutes max, can be made dynamic)
     const videoDuration = 300; // 5 minutes in seconds - this could be dynamic from video element
@@ -753,39 +755,13 @@ export default function Home() {
       <main className="pt-24 px-4">
         <div className="container mx-auto max-w-4xl">
           <div className="flex flex-col gap-2 mb-4">
-            <input
-              type="text"
-              value={videoUrl}
-              onChange={(e) => setVideoUrl(e.target.value)}
-              placeholder="Paste YouTube URL..."
-              className="w-full p-3 border-2 border-InputboxColor rounded-lg focus:ring-2 focus:ring-InputboxHighlight focus:border-InputboxHighlight focus:outline-none text-InputText placeholder-InputboxColor"
-            />
             <div className="flex flex-col sm:flex-row gap-2 w-full">
-              <button
-                onClick={loadVideo}
-                className="flex-1 bg-LoadVideo hover:bg-LoadVideoHover text-white px-4 py-3 rounded-lg transition-colors duration-200 font-medium"
-              >
-                Load Video
-              </button>
-              <button
-                onClick={() => document.getElementById('video-upload')?.click()}
-                className="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-4 py-3 rounded-lg transition-colors duration-200 font-medium"
-              >
-                Upload Video
-              </button>
-              <input
-                id="video-upload"
-                type="file"
-                accept="video/*"
-                onChange={handleVideoUpload}
-                style={{ display: 'none' }}
-              />
+                {/* Upload button now lives in VideoControls */}
             </div>
           </div>
 
           <div className="mb-4 aspect-video bg-black rounded-lg overflow-hidden">
             <VideoPlayer
-              videoId={videoId}
               currentTime={currentTime}
               currentBeat={currentBeat}
               currentCue={currentCue}
@@ -818,12 +794,14 @@ export default function Home() {
               onToggleOverlay={handleToggleOverlay}
               overlaysVisible={overlaysVisible}
               playbackSpeed={playbackSpeed}
+                onUploadVideo={handleVideoUpload}
+                uploadButtonId="video-upload-controls"
             />
           </div>
 
           <div className="space-y-6">
             <MetronomeControls
-              bpm={bpm}
+              bpm={bpm ?? 0}
               currentBeat={currentBeat}
               isRunning={isMetronomeRunning}
               timeMode={timeMode}
@@ -836,7 +814,7 @@ export default function Home() {
               onStart={handleStartMetronome}
               onStop={stopMetronome}
               onAdjustBpm={adjustBpm}
-              onBpmChange={(newBpm) => adjustBpm(newBpm - bpm)}
+              onBpmChange={(newBpm) => adjustBpm(newBpm - (bpm ?? 0))}
               onTimeModeChange={setTimeMode}
               onToggleMute={toggleMute}
               onLockSync={handleLockSync}
