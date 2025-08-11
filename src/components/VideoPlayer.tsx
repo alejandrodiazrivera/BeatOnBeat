@@ -240,7 +240,8 @@ export default function VideoPlayer({
                 }
               },
             onStateChange: (event) => {
-              if (debug) console.log('Player state:', event.data);
+              if (debug) console.log('YouTube Player state:', event.data);
+              
               // Sync YouTube player state with React state
               if (onPlayStateChange) {
                 const isNowPlaying = event.data === window.YT.PlayerState.PLAYING;
@@ -254,9 +255,10 @@ export default function VideoPlayer({
                   eventData: event.data 
                 });
                 
-                if (isNowPlaying) {
+                // Only call state change if it's actually different
+                if (isNowPlaying && !isPlaying) {
                   onPlayStateChange(true);
-                } else if (isNowPaused || isEnded) {
+                } else if ((isNowPaused || isEnded) && isPlaying) {
                   onPlayStateChange(false);
                 }
                 
@@ -410,19 +412,30 @@ export default function VideoPlayer({
     
     const syncTime = () => {
       try {
-        const time = videoId 
-          ? (playerRef.current && typeof playerRef.current.getCurrentTime === 'function' 
-              ? playerRef.current.getCurrentTime() : 0)
-          : (videoRef.current?.currentTime || 0);
-        onTimeUpdate(time);
+        let time = 0;
+        
+        if (videoId && playerRef.current && typeof playerRef.current.getCurrentTime === 'function') {
+          // YouTube video - get time from YouTube Player API
+          time = playerRef.current.getCurrentTime();
+        } else if (videoRef.current) {
+          // Local video - get time from HTML video element
+          time = videoRef.current.currentTime;
+        }
+        
+        // Only update if time has changed significantly (avoid flickering)
+        if (Math.abs(time - currentTime) > 0.1) {
+          onTimeUpdate(time);
+        }
       } catch (error) {
         if (debug) console.error('Time sync error:', error);
       }
     };
 
-    const interval = setInterval(syncTime, 200);
+    // Use different intervals for YouTube vs local video
+    const updateInterval = videoId ? 500 : 200; // Slower updates for YouTube to reduce API calls
+    const interval = setInterval(syncTime, updateInterval);
     return () => clearInterval(interval);
-  }, [onTimeUpdate, videoId, debug]);
+  }, [onTimeUpdate, videoId, debug, currentTime]);
 
   // Cleanup local video URL
   useEffect(() => {

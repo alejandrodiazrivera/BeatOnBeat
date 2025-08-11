@@ -1,5 +1,5 @@
 import { FC, useState, useEffect, ChangeEvent } from 'react';
-import { RotateCcw, MousePointerClick, Lock, LockOpen, Volume2, VolumeX, Square } from 'lucide-react';
+import { RotateCcw, MousePointerClick, Volume2, VolumeX, Square } from 'lucide-react';
 import BeatIndicator from './BeatIndicator';
 
 interface MetronomeControlsProps {
@@ -38,7 +38,6 @@ const MetronomeControls: FC<MetronomeControlsProps> = ({
   getTimeModeConfig
 }) => {
   const [inputValue, setInputValue] = useState(Math.round(bpm).toString());
-  const [isLocked, setIsLocked] = useState(false);
 
   // Sync input with BPM changes
   useEffect(() => {
@@ -68,11 +67,7 @@ const MetronomeControls: FC<MetronomeControlsProps> = ({
     }
   };
 
-  // Lock toggle handler
-  const handleLockToggle = () => {
-    setIsLocked((prev) => !prev);
-    // You can add additional logic here to 'lock' the metronome sync
-  };
+
 
   // Mute toggle handler
   const handleMuteToggle = () => {
@@ -121,26 +116,14 @@ const MetronomeControls: FC<MetronomeControlsProps> = ({
               onBlur={handleBpmInputBlur}
               onKeyPress={handleKeyPress}
               className="font-bold w-full text-center border-2 border-InputboxColor rounded-lg py-1 pr-8 pl-2 focus:outline-none focus:ring-2 focus:ring-InputboxHighlight text-InputText"
-              aria-label="BPM value"
-              placeholder="100"
-              disabled={isLocked}
             />
             <span className="absolute right-2 top-1/2 -translate-y-1/2 text-Bpm text-xs pointer-events-none select-none">BPM</span>
           </div>
           <button
             onClick={handleIncrement}
             className="bg-Pause hover:bg-Stop text-Metronome hover:text-white w-8 h-8 rounded-full flex items-center justify-center font-bold transition-colors duration-200"
-            disabled={isLocked}
           >
             +
-          </button>
-          <button
-            onClick={handleLockToggle}
-            className={`ml-2 w-8 h-8 rounded-full flex items-center justify-center transition-colors duration-200 border-2 border-Borders ${isLocked ? 'bg-Metronome text-white' : 'bg-white text-Metronome hover:bg-Metronome hover:text-white'}`}
-            title={isLocked ? 'Unlock metronome sync' : 'Lock metronome sync'}
-            aria-label={isLocked ? 'Unlock metronome sync' : 'Lock metronome sync'}
-          >
-            {isLocked ? <Lock size={20} /> : <LockOpen size={20} />}
           </button>
           <button
             onClick={handleMuteToggle}
@@ -161,6 +144,8 @@ const MetronomeControls: FC<MetronomeControlsProps> = ({
             getTimeModeConfig={getTimeModeConfig}
           />
         </div>
+
+
         
         {/* Control Buttons */}
         <div className="flex gap-3 w-full sm:w-auto justify-center sm:justify-start">

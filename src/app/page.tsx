@@ -35,7 +35,8 @@ export default function Home() {
   const [pausedBeat, setPausedBeat] = useState(1);
   const [playbackSpeed, setPlaybackSpeed] = useState(1);
   // Removed unused videoFile state
-
+  
+  // Auto-sync lock state
   const {
     bpm,
     currentBeat,
@@ -350,6 +351,20 @@ export default function Home() {
       timeUpdateIntervalRef.current = null;
     }
   };
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
   return (
     <div className="relative min-h-screen bg-gradient-to-br from-[white] via-[#F9FAFB] to-[white]">

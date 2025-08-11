@@ -290,7 +290,33 @@ export const useMetronome = (initialBpm = 100) => {
       if (timeMode === '8-beat') {
         // Two 4/4 measures: Users typically tap quarter notes
         // Each tap = one quarter note = one metronome beat
-        tappedBpm = 60000 / avgInterval;
+        const basicBpm = 60000 / avgInterval;
+        
+        // Intelligent note value detection based on tempo ranges
+        if (basicBpm >= 40 && basicBpm <= 60) {
+          // Very slow tapping - likely whole notes, multiply by 4
+          tappedBpm = Math.round(basicBpm * 4);
+          console.log(`🎵 Detected whole note tapping: ${Math.round(basicBpm)} → ${tappedBpm} BPM (×4 conversion)`);
+        } else if (basicBpm >= 60 && basicBpm <= 80) {
+          // Slow tapping - could be half notes, multiply by 2
+          tappedBpm = Math.round(basicBpm * 2);
+          console.log(`🎵 Detected half note tapping: ${Math.round(basicBpm)} → ${tappedBpm} BPM (×2 conversion)`);
+        } else if (basicBpm >= 80 && basicBpm <= 180) {
+          // Normal range - likely quarter notes, use as-is
+          tappedBpm = basicBpm;
+          console.log(`🎵 Detected quarter note tapping: ${Math.round(basicBpm)} BPM`);
+        } else if (basicBpm >= 180 && basicBpm <= 300) {
+          // Fast tapping - likely eighth notes, divide by 2
+          tappedBpm = Math.round(basicBpm / 2);
+          console.log(`🎵 Detected eighth note tapping: ${Math.round(basicBpm)} → ${tappedBpm} BPM (÷2 conversion)`);
+        } else if (basicBpm > 300) {
+          // Very fast tapping - likely sixteenth notes, divide by 4
+          tappedBpm = Math.round(basicBpm / 4);
+          console.log(`🎵 Detected sixteenth note tapping: ${Math.round(basicBpm)} → ${tappedBpm} BPM (÷4 conversion)`);
+        } else {
+          // Fallback for edge cases
+          tappedBpm = Math.max(60, Math.min(200, basicBpm));
+        }
       } else if (timeMode === 'flamenco-12') {
         // Flamenco 12-beat compás: More complex - users might tap different patterns
         
