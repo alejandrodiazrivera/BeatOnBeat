@@ -1,5 +1,5 @@
 import { FC, useState, useEffect, ChangeEvent } from 'react';
-import { RotateCcw, MousePointerClick, Volume2, VolumeX, Square } from 'lucide-react';
+import { RotateCcw, MousePointerClick, Volume2, VolumeX, Square, Lock, LockOpen } from 'lucide-react';
 import BeatIndicator from './BeatIndicator';
 
 interface MetronomeControlsProps {
@@ -19,6 +19,11 @@ interface MetronomeControlsProps {
     beatsPerCycle: number;
     strongBeats: number[];
   };
+  // Auto-sync props
+  isLocked?: boolean;
+  detectedBPM?: number | null;
+  isDetecting?: boolean;
+  onAutoSync?: () => void;
   className?: string;
 }
 
@@ -35,8 +40,36 @@ const MetronomeControls: FC<MetronomeControlsProps> = ({
   onBpmChange,
   onTimeModeChange,
   onToggleMute,
-  getTimeModeConfig
+  getTimeModeConfig,
+  // Auto-sync props
+  isLocked = false,
+  detectedBPM = null,
+  isDetecting = false,
+  onAutoSync
 }) => {
+    // Spinner style for lock icon
+    const spinnerStyle: React.CSSProperties = {
+      position: 'absolute',
+      top: '-5%',
+      left: '-5%',
+      transform: 'translate(-50%, -50%)',
+      width: '34px',
+      height: '34px',
+      border: '4px solid #9966cb', // purple
+      borderTop: '3px solid #fff',
+      borderRadius: '50%',
+      animation: 'spin 0.8s linear infinite',
+      zIndex: 1,
+      pointerEvents: 'none',
+    };
+
+    // Add keyframes for spin animation
+    useEffect(() => {
+      const style = document.createElement('style');
+      style.innerHTML = `@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }`;
+      document.head.appendChild(style);
+      return () => { document.head.removeChild(style); };
+    }, []);
   const [inputValue, setInputValue] = useState(Math.round(bpm).toString());
 
   // Sync input with BPM changes
@@ -133,6 +166,18 @@ const MetronomeControls: FC<MetronomeControlsProps> = ({
           >
             {isMuted ? <VolumeX size={20} /> : <Volume2 size={20} />}
           </button>
+          <div className="relative ml-2 w-8 h-8 flex items-center justify-center">
+            {/* Spinner overlay when detecting and not locked */}
+            {isDetecting && !isLocked && <span style={spinnerStyle} />}
+            <button
+              onClick={onAutoSync}
+              className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors duration-200 border-2 border-Borders ${isLocked ? 'bg-Metronome text-white' : 'bg-white text-Metronome hover:bg-Metronome hover:text-white'}`}
+              title={isLocked ? 'Unlock auto-sync (stop continuous monitoring)' : 'Lock auto-sync with video (start continuous monitoring)'}
+              aria-label={isLocked ? 'Unlock auto-sync' : 'Lock auto-sync with video'}
+            >
+              {isLocked ? <Lock size={20} /> : <LockOpen size={20} />}
+            </button>
+          </div>
         </div>
         
         {/* Beat Indicator */}
@@ -145,9 +190,7 @@ const MetronomeControls: FC<MetronomeControlsProps> = ({
           />
         </div>
 
-
-        
-        {/* Control Buttons */}
+        {/* Auto-Sync Status - Show only when locked */}
         <div className="flex gap-3 w-full sm:w-auto justify-center sm:justify-start">
           {/* Time Mode Toggle Button */}
           <button

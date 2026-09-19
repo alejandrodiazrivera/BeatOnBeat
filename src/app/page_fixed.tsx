@@ -2,6 +2,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { CuePoint } from '../types/types';
 import { useMetronome } from '../hooks/useMetronome';
+import { extractVideoId } from '../utils/youtubeUtils';
 
 // Utility functions for precise time handling
 
@@ -61,22 +62,13 @@ export default function Home() {
 
   const timeUpdateIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  const extractVideoId = (url: string): string | null => {
-    if (url.includes('youtube.com/watch?v=')) {
-      return url.split('v=')[1].split('&')[0];
-    } else if (url.includes('youtu.be/')) {
-      return url.split('youtu.be/')[1].split('?')[0];
-    }
-    return null;
-  };
-
   const loadVideo = () => {
     const id = extractVideoId(videoUrl);
     if (id) {
       // Video ID extracted, but not used
       startTimeTracking(true); // Reset time when loading new video
     } else {
-      alert('Please enter a valid YouTube URL');
+      alert('Please enter a valid YouTube URL (videos or reels)');
     }
   };
 
@@ -378,7 +370,7 @@ export default function Home() {
               type="text"
               value={videoUrl}
               onChange={(e) => setVideoUrl(e.target.value)}
-              placeholder="Paste YouTube URL..."
+              placeholder="Paste YouTube URL (videos or reels)..."
               className="flex-1 p-3 border-2 border-InputboxColor rounded-lg focus:ring-2 focus:ring-InputboxHighlight focus:border-InputboxHighlight focus:outline-none text-InputText placeholder-InputboxColor"
             />
             <button
@@ -392,10 +384,8 @@ export default function Home() {
           <div className="mb-4 aspect-video bg-black rounded-lg overflow-hidden">
             <VideoPlayer
               currentTime={currentTime}
-              currentBeat={currentBeat}
               currentCue={currentCue}
               overlaysVisible={overlaysVisible}
-              isMetronomeRunning={isMetronomeRunning}
               isPlaying={isPlaying}
               playbackSpeed={playbackSpeed}
               onTimeUpdate={setCurrentTime}
@@ -415,9 +405,6 @@ export default function Home() {
               onSkipBack={handleSkipBack}
               onSkipForward={handleSkipForward}
               onSpeedChange={handleSpeedChange}
-              onAddCue={handleAddCue}
-              onToggleOverlay={handleToggleOverlay}
-              overlaysVisible={overlaysVisible}
               playbackSpeed={playbackSpeed}
             />
           </div>
@@ -452,8 +439,6 @@ export default function Home() {
             <div className="fixed inset-0 bg-black bg-opacity-50 z-40 flex items-center justify-center">
               <CueForm
                 currentTime={currentTime}
-                currentBeat={currentBeat}
-                timeMode={timeMode}
                 onSubmit={handleSubmitCue}
                 editingCue={editingCue}
                 onCancel={() => setEditingCue(null)}

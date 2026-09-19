@@ -1,5 +1,5 @@
 import { FC } from 'react';
-import {Play,Pause,Square,Rewind,FastForward, Layers, Layers2,Pin} from 'lucide-react';
+import {Play,Pause,Square,Rewind,FastForward} from 'lucide-react';
 
 interface VideoControlsProps {
   onPlay: () => void;
@@ -8,9 +8,6 @@ interface VideoControlsProps {
   onSkipBack: () => void;
   onSkipForward: () => void;
   onSpeedChange: (speed: number) => void;
-  onAddCue: () => void;
-  onToggleOverlay: () => void;
-  overlaysVisible: boolean;
   playbackSpeed?: number;
 }
 
@@ -21,9 +18,6 @@ const VideoControls: FC<VideoControlsProps> = ({
   onSkipBack,
   onSkipForward,
   onSpeedChange,
-  onAddCue,
-  onToggleOverlay,
-  overlaysVisible,
   playbackSpeed = 1
 }) => {
   const handleSpeedChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -86,31 +80,6 @@ const VideoControls: FC<VideoControlsProps> = ({
         ))}
       </select>
 
-      <button
-        onClick={() => {
-          console.log('🔵 Add Cue button clicked');
-          onAddCue();
-        }}
-        className="p-2 bg-Cue hover:bg-CueHover text-white rounded-lg 
-                  transition-colors duration-200 flex items-center justify-center gap-1.5"
-        aria-label="Add Cue Point"
-      >
-        <Pin className="w-4 h-4" />
-
-      </button>
-
-      <button
-        onClick={onToggleOverlay}
-        className={`p-2 rounded-lg ml-auto flex items-center justify-center transition-colors duration-200 ${
-          overlaysVisible 
-            ? 'bg-Layers hover:bg-LayersHover text-white' 
-            : 'bg-LayersToggle hover:bg-LayersToggleHover text-Text'
-        }`}
-        aria-label="Toggle Overlays"
-        title={overlaysVisible ? 'Hide Overlays' : 'Show Overlays'}
-      >
-        {overlaysVisible ? <Layers size={20} /> : <Layers2 size={20} />}
-      </button>
     </div>
   );
 };

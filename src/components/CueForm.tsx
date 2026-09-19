@@ -16,8 +16,6 @@ const formatTimeWithMilliseconds = (timeInSeconds: number): string => {
 
 interface CueFormProps {
   currentTime: number;
-  currentBeat: number;
-  timeMode: '8-beat' | 'flamenco-12';
   onSubmit: (cue: Omit<CuePoint, 'id'> | CuePoint) => void;
   editingCue: CuePoint | null;
   onCancel: () => void;
@@ -26,8 +24,6 @@ interface CueFormProps {
 
 const CueForm: FC<CueFormProps> = ({ 
   currentTime, 
-  currentBeat, 
-  timeMode,
   onSubmit, 
   editingCue,
   onCancel,
@@ -36,7 +32,6 @@ const CueForm: FC<CueFormProps> = ({
   const [time, setTime] = useState('');
   const [title, setTitle] = useState('');
   const [note, setNote] = useState('');
-  const [beat, setBeat] = useState<number | undefined>();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [position, setPosition] = useState({ x: 0, y: 0 });
@@ -44,12 +39,19 @@ const CueForm: FC<CueFormProps> = ({
   const isMobile = typeof window !== 'undefined' ? window.innerWidth < 640 : false;
   const formRef = useRef<HTMLDivElement>(null);
 
+  // Sanitize input to prevent XSS
+  const sanitizeInput = (input: string): string => {
+    return input.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+                .replace(/javascript:/gi, '')
+                .replace(/on\w+\s*=/gi, '')
+                .trim();
+  };
+
   useEffect(() => {
     console.log('📝 CueForm useEffect triggered:', {
       editingCue: !!editingCue,
       editingCueId: editingCue?.id,
-      currentTime,
-      currentBeat
+      currentTime
     });
     console.log('📝 CueForm calling onPause()');
     onPause();
@@ -58,15 +60,13 @@ const CueForm: FC<CueFormProps> = ({
       setTime(editingCue.time);
       setTitle(editingCue.title);
       setNote(editingCue.note);
-      setBeat(editingCue.beat);
     } else {
       const formattedTime = formatTimeWithMilliseconds(currentTime);
       setTime(formattedTime);
       setTitle('');
       setNote('');
-      setBeat(currentBeat); // Always set the beat, regardless of metronome state
     }
-  }, [editingCue, onPause, currentTime, currentBeat]);
+  }, [editingCue, onPause, currentTime]);
 
   // Drag handlers
   const handleMouseDown = (e: React.MouseEvent) => {
@@ -108,7 +108,7 @@ const CueForm: FC<CueFormProps> = ({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     console.log('CueForm handleSubmit called');
-    console.log('Form data:', { time, title, note, beat });
+    console.log('Form data:', { time, title, note });
     setIsSubmitting(true);
     
     if (!time) {
@@ -118,8 +118,14 @@ const CueForm: FC<CueFormProps> = ({
     }
     
     try {
-      console.log('Calling onSubmit with:', { time, title, note, beat });
-      onSubmit({ time, title, note, beat });
+      console.log('Calling onSubmit with:', { time, title, note });
+      // Sanitize inputs before submission
+      const sanitizedData = {
+        time: sanitizeInput(time),
+        title: sanitizeInput(title),
+        note: sanitizeInput(note)
+      };
+      onSubmit(sanitizedData);
       console.log('onSubmit call completed successfully');
       if (!editingCue) {
         console.log('Clearing form fields');
@@ -132,24 +138,6 @@ const CueForm: FC<CueFormProps> = ({
       setIsSubmitting(false);
     }
   };
-  const getBeatColor = (beatValue: number) => {
-    if (timeMode === 'flamenco-12') {
-      // Flamenco accents: 3, 6, 8, 10, 12 are red (accented), others are orange
-      return [3, 6, 8, 10, 12].includes(beatValue) ? 'bg-red-600' : 'bg-orange-500';
-    } else {
-      // 8-beat mode: Beats 1 and 5 are purple, all others are red
-      return beatValue === 1 || beatValue === 5 ? 'bg-black' : 'bg-gray-400';
-    }
-  };
-
-  const handleBeatClick = (e: React.MouseEvent) => {
-    e.stopPropagation(); // Prevent any event bubbling
-    // Dynamic max beat based on time mode
-    const maxBeat = timeMode === 'flamenco-12' ? 12 : 8;
-    const nextBeat = beat && beat < maxBeat ? beat + 1 : 1;
-    setBeat(nextBeat);
-  };
-
   return (
     <div 
       ref={formRef}
@@ -177,18 +165,10 @@ const CueForm: FC<CueFormProps> = ({
           }
       }
     >
-      {/* Header with beat indicator */}
       <div 
         className="flex items-center gap-2 sm:gap-3 mb-3 sm:mb-4 p-3 sm:p-4 pb-0"
         onMouseDown={handleMouseDown}
       >
-        <div 
-          className={`rounded-full h-8 w-8 sm:h-10 sm:w-10 flex items-center justify-center text-white font-bold cursor-pointer hover:scale-110 transition-transform text-sm sm:text-base ${getBeatColor(beat || 1)}`}
-          onClick={handleBeatClick}
-          title="Click to change beat number"
-        >
-          {beat || 1}
-        </div>
         <div className="flex-1 flex items-center justify-between min-w-0">
           <h3 className="text-lg sm:text-xl font-bold text-Title truncate pr-2">
             {editingCue ? 'Edit Cue Point' : '➕ Add New Cue Point'}
@@ -221,7 +201,7 @@ const CueForm: FC<CueFormProps> = ({
                 value={time}
                 onChange={(e) => setTime(e.target.value)}
                 placeholder="MM:SS"
-                className="w-full p-3 border-2 border-black rounded-lg focus:border-black focus:ring-2 focus:ring-gray-300 outline-none transition text-base sm:text-lg h-[50px] sm:h-[56px]"
+                className="w-full p-3 border-2 border-black rounded-lg focus:border-black outline-none transition text-base sm:text-lg h-[50px] sm:h-[56px]"
                 required
               />
             </div>
@@ -236,7 +216,7 @@ const CueForm: FC<CueFormProps> = ({
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 placeholder="Cue title"
-                className="w-full p-3 border-2 border-black rounded-lg focus:border-black focus:ring-2 focus:ring-gray-300 outline-none transition text-base sm:text-lg h-[50px] sm:h-[56px]"
+                className="w-full p-3 border-2 border-black rounded-lg focus:border-black outline-none transition text-base sm:text-lg h-[50px] sm:h-[56px]"
                 required
               />
             </div>
@@ -251,7 +231,7 @@ const CueForm: FC<CueFormProps> = ({
               value={note}
               onChange={(e) => setNote(e.target.value)}
               placeholder="Add detailed notes about this cue point..."
-              className="w-full p-3 border-2 border-black rounded-lg focus:border-black focus:ring-2 focus:ring-gray-300 outline-none transition text-base sm:text-lg resize-y min-h-[140px]"
+              className="w-full p-3 border-2 border-black rounded-lg focus:border-black outline-none transition text-base sm:text-lg resize-y min-h-[140px]"
               rows={5}
               style={{
                 scrollbarWidth: 'thin',

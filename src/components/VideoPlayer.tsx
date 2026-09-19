@@ -14,10 +14,8 @@ interface YTPlayer {
 interface VideoPlayerProps {
   videoId?: string | null;
   currentTime: number;
-  currentBeat: number;
   currentCue?: CuePoint | null;
   overlaysVisible?: boolean;
-  isMetronomeRunning?: boolean;
   isPlaying: boolean;
   playbackSpeed?: number;
   onTimeUpdate?: (time: number) => void;
@@ -87,19 +85,6 @@ const TimeOverlay = memo(({ currentTime }: { currentTime: number }) => {
   );
 });
 
-const BeatOverlay = memo(({ currentBeat, isMetronomeRunning }: { 
-  currentBeat: number; 
-  isMetronomeRunning?: boolean 
-}) => (
-  <div className={`
-    absolute top-2 right-2 flex items-center justify-center
-    w-6 h-6 md:w-8 md:h-8 rounded-full text-white font-bold text-xs md:text-sm
-    ${isMetronomeRunning ? 'animate-pulse bg-red-600' : 'bg-gray-400'}
-  `}>
-    {currentBeat}
-  </div>
-));
-
 const CueOverlay = memo(({ cue }: { cue: CuePoint }) => (
   <div className="absolute bottom-4 left-0 right-0 mx-auto bg-black/20 text-white p-2 md:p-4 rounded max-w-[90%] text-center">
     <h3 className="font-bold text-sm md:text-lg">{cue.title}</h3>
@@ -111,10 +96,8 @@ const CueOverlay = memo(({ cue }: { cue: CuePoint }) => (
 export default function VideoPlayer({
   videoId,
   currentTime,
-  currentBeat = 1,
   currentCue,
   overlaysVisible = true,
-  isMetronomeRunning = false,
   isPlaying,
   playbackSpeed = 1,
   onTimeUpdate,
@@ -131,6 +114,7 @@ export default function VideoPlayer({
   const playerRef = useRef<YTPlayer | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const pendingSeekRef = useRef<number | null>(null);
   
   // State
   const [playerReady, setPlayerReady] = useState(false);
@@ -187,9 +171,10 @@ export default function VideoPlayer({
       
   const suppressYouTubeWarnings = (message: unknown, ...args: unknown[]) => {
         const messageStr = String(message);
-        if (messageStr.includes('postMessage') && 
-            messageStr.includes('youtube.com') && 
-            messageStr.includes('localhost')) {
+        // Suppress common YouTube development warnings
+        if ((messageStr.includes('postMessage') && messageStr.includes('youtube.com')) ||
+            (messageStr.includes('target origin') && messageStr.includes('youtube.com')) ||
+            (messageStr.includes('localhost') && messageStr.includes('youtube.com'))) {
           return; // Suppress YouTube cross-origin warnings in development
         }
         originalConsoleWarn(message, ...args);
@@ -197,9 +182,10 @@ export default function VideoPlayer({
       
   const suppressYouTubeErrors = (message: unknown, ...args: unknown[]) => {
         const messageStr = String(message);
-        if (messageStr.includes('postMessage') && 
-            messageStr.includes('youtube.com') && 
-            messageStr.includes('localhost')) {
+        // Suppress common YouTube development errors
+        if ((messageStr.includes('postMessage') && messageStr.includes('youtube.com')) ||
+            (messageStr.includes('target origin') && messageStr.includes('youtube.com')) ||
+            (messageStr.includes('DOMWindow') && messageStr.includes('youtube.com'))) {
           return; // Suppress YouTube cross-origin errors in development
         }
         originalConsoleError(message, ...args);
@@ -225,19 +211,32 @@ export default function VideoPlayer({
                 console.warn = originalConsoleWarn;
                 console.error = originalConsoleError;
                 
-                // Additional check to ensure player is fully ready
-                if (playerRef.current && typeof playerRef.current.playVideo === 'function') {
-                  setPlayerReady(true);
-                  if (debug) console.log('YouTube player ready and verified');
-                } else {
-                  if (debug) console.warn('YouTube player created but methods not available');
-                  setTimeout(() => {
-                    if (playerRef.current && typeof playerRef.current.playVideo === 'function') {
-                      setPlayerReady(true);
-                      if (debug) console.log('YouTube player methods now available');
+                if (debug) console.log('YouTube player onReady called');
+                
+                // Multiple verification attempts for player readiness
+                const verifyPlayer = (attempt = 1) => {
+                  if (!playerRef.current) {
+                    if (debug) console.warn('Player ref lost during verification');
+                    return;
+                  }
+                  
+                  if (typeof playerRef.current.playVideo === 'function' && 
+                      typeof playerRef.current.getCurrentTime === 'function') {
+                    setPlayerReady(true);
+                    if (debug) console.log(`YouTube player ready and verified (attempt ${attempt})`);
+                  } else {
+                    if (attempt < 10) { // Try up to 10 times
+                      if (debug) console.log(`Player methods not ready, attempt ${attempt}/10`);
+                      setTimeout(() => verifyPlayer(attempt + 1), 100 * attempt); // Increasing delay
+                    } else {
+                      if (debug) console.error('YouTube player methods never became available after 10 attempts');
+                      setApiError(true);
                     }
-                  }, 500);
-                }
+                  }
+                };
+                
+                // Start verification immediately, then with delay
+                verifyPlayer();
               },
             onStateChange: (event) => {
               if (debug) console.log('YouTube Player state:', event.data);
@@ -329,27 +328,39 @@ export default function VideoPlayer({
     });
 
     if (videoId) {
-      if (!playerReady || !playerRef.current) {
-        console.log('⚠️ YouTube player not ready yet');
+      if (!playerRef.current) {
+        if (debug) console.log('⚠️ YouTube player ref not available yet');
         return;
       }
       
-      // Add safety check to ensure the player has the required methods
-      try {
-        if (typeof playerRef.current.playVideo === 'function' && typeof playerRef.current.pauseVideo === 'function') {
-          console.log(`🎞️ YouTube: ${isPlaying ? 'Playing' : 'Pausing'} video`);
-          if (isPlaying) {
-            playerRef.current.playVideo();
+      // More aggressive safety check for YouTube player methods
+      const attemptControl = (retries = 3) => {
+        try {
+          if (typeof playerRef.current?.playVideo === 'function' && 
+              typeof playerRef.current?.pauseVideo === 'function') {
+            if (debug) console.log(`🎞️ YouTube: ${isPlaying ? 'Playing' : 'Pausing'} video`);
+            if (isPlaying) {
+              playerRef.current.playVideo();
+            } else {
+              playerRef.current.pauseVideo();
+            }
+          } else if (retries > 0) {
+            if (debug) console.warn(`YouTube player methods not available, retrying... (${retries} attempts left)`);
+            setTimeout(() => attemptControl(retries - 1), 100);
           } else {
-            playerRef.current.pauseVideo();
+            if (debug) console.error('YouTube player methods unavailable after retries');
           }
-        } else {
-          if (debug) console.warn('YouTube player methods not available yet');
+        } catch (error) {
+          if (debug) console.error('YouTube player control error:', error);
+          if (retries > 0) {
+            setTimeout(() => attemptControl(retries - 1), 100);
+          } else {
+            setApiError(true);
+          }
         }
-      } catch (error) {
-        if (debug) console.error('YouTube player control error:', error);
-        setApiError(true);
-      }
+      };
+      
+      attemptControl();
     } else if (videoRef.current) {
       console.log(`🎞️ Local video: ${isPlaying ? 'Playing' : 'Pausing'} video`);
       if (isPlaying) {
@@ -366,23 +377,40 @@ export default function VideoPlayer({
 
   // Seek control
   useEffect(() => {
+    pendingSeekRef.current = currentTime;
+
     if (videoId) {
-      if (!playerReady || !playerRef.current) return;
+      if (!playerRef.current) return;
       
-      try {
-        if (typeof playerRef.current.getCurrentTime === 'function' && typeof playerRef.current.seekTo === 'function') {
-          if (Math.abs(playerRef.current.getCurrentTime() - currentTime) > 0.5) {
-            playerRef.current.seekTo(currentTime, true);
+      const attemptSeek = (retries = 3) => {
+        try {
+          if (typeof playerRef.current?.getCurrentTime === 'function' && 
+              typeof playerRef.current?.seekTo === 'function') {
+            const currentPlayerTime = playerRef.current.getCurrentTime();
+            if (Math.abs(currentPlayerTime - currentTime) > 0.5) {
+              if (debug) console.log(`🎯 Seeking YouTube video to ${currentTime}s`);
+              playerRef.current.seekTo(currentTime, true);
+            } else {
+              pendingSeekRef.current = null;
+            }
+          } else if (retries > 0) {
+            if (debug && retries === 3) console.log('YouTube seek methods not available, retrying...');
+            setTimeout(() => attemptSeek(retries - 1), 50);
           }
-        } else {
-          if (debug) console.warn('YouTube player seek methods not available yet');
+        } catch (error) {
+          if (debug) console.error('YouTube player seek error:', error);
+          if (retries > 0) {
+            setTimeout(() => attemptSeek(retries - 1), 50);
+          }
         }
-      } catch (error) {
-        if (debug) console.error('YouTube player seek error:', error);
-      }
+      };
+      
+      attemptSeek();
     } else if (videoRef.current) {
       if (Math.abs(videoRef.current.currentTime - currentTime) > 0.5) {
         videoRef.current.currentTime = currentTime;
+      } else {
+        pendingSeekRef.current = null;
       }
     }
   }, [currentTime, playerReady, videoId, debug]);
@@ -406,24 +434,61 @@ export default function VideoPlayer({
     }
   }, [playbackSpeed, playerReady, videoId, debug]);
 
-  // Time update sync
+  // Time update sync - handles both YouTube and local videos
   useEffect(() => {
     if (!onTimeUpdate) return;
     
     const syncTime = () => {
       try {
         let time = 0;
+        let hasValidSource = false;
         
-        if (videoId && playerRef.current && typeof playerRef.current.getCurrentTime === 'function') {
+        if (videoId && playerRef.current) {
           // YouTube video - get time from YouTube Player API
-          time = playerRef.current.getCurrentTime();
-        } else if (videoRef.current) {
-          // Local video - get time from HTML video element
+          // Check if player is ready and has the required method
+          if (playerReady && typeof playerRef.current.getCurrentTime === 'function') {
+            time = playerRef.current.getCurrentTime();
+            hasValidSource = true;
+            if (debug) console.log('🎞️ YouTube time:', time);
+          } else {
+            // Player might not be ready yet, but still try to get time
+            try {
+              if (typeof playerRef.current.getCurrentTime === 'function') {
+                time = playerRef.current.getCurrentTime();
+                hasValidSource = true;
+                if (debug) console.log('🎞️ YouTube time (player not marked ready):', time);
+              }
+            } catch (e) {
+              // Silently ignore - player not ready yet
+              if (debug) console.log('🎞️ YouTube player not ready for time sync');
+            }
+          }
+        } else if (videoRef.current && !videoRef.current.paused) {
+          // Local video - get time from HTML video element (only if not paused)
           time = videoRef.current.currentTime;
+          hasValidSource = true;
+          if (debug) console.log('🎞️ Local video time:', time);
+        } else if (videoRef.current) {
+          // Even if paused, still sync the time
+          time = videoRef.current.currentTime;
+          hasValidSource = true;
+          if (debug) console.log('🎞️ Local video time (paused):', time);
+        }
+
+        if (
+          pendingSeekRef.current !== null &&
+          hasValidSource &&
+          Math.abs(time - pendingSeekRef.current) > 0.5
+        ) {
+          return;
+        }
+
+        if (pendingSeekRef.current !== null) {
+          pendingSeekRef.current = null;
         }
         
-        // Only update if time has changed significantly (avoid flickering)
-        if (Math.abs(time - currentTime) > 0.1) {
+        // Update time if we have a valid source
+        if (hasValidSource) {
           onTimeUpdate(time);
         }
       } catch (error) {
@@ -431,11 +496,14 @@ export default function VideoPlayer({
       }
     };
 
-    // Use different intervals for YouTube vs local video
-    const updateInterval = videoId ? 500 : 200; // Slower updates for YouTube to reduce API calls
+    // Sync time immediately
+    syncTime();
+    
+    // Use consistent interval for both video types
+    const updateInterval = 100; // 100ms for smoother updates
     const interval = setInterval(syncTime, updateInterval);
     return () => clearInterval(interval);
-  }, [onTimeUpdate, videoId, debug, currentTime]);
+  }, [onTimeUpdate, videoId, debug, playerReady, videoSrc]);
 
   // Cleanup local video URL
   useEffect(() => {
@@ -443,6 +511,14 @@ export default function VideoPlayer({
       if (videoSrc) URL.revokeObjectURL(videoSrc);
     };
   }, [videoSrc]);
+
+  // Keep YouTube and local video sources mutually exclusive.
+  useEffect(() => {
+    if (videoId && videoSrc) {
+      URL.revokeObjectURL(videoSrc);
+      setVideoSrc(null);
+    }
+  }, [videoId, videoSrc]);
 
   // Render
   return (
@@ -487,7 +563,7 @@ export default function VideoPlayer({
       )}
 
       {/* YouTube Player */}
-      {videoId && (
+      {videoId && !videoSrc && (
         <div 
           ref={containerRef} 
           className="absolute inset-0"
@@ -498,7 +574,7 @@ export default function VideoPlayer({
               alt="Video thumbnail"
               fill
               className="absolute inset-0 w-full h-full object-cover opacity-50"
-              sizes="100vw"
+              sizes="(max-width: 768px) 100vw, (max-width: 1200px) 80vw, 60vw"
               priority
             />
           )}
@@ -577,9 +653,6 @@ export default function VideoPlayer({
       {overlaysVisible && (playerReady || videoSrc) && (
         <div className="absolute inset-0 pointer-events-none">
           <TimeOverlay currentTime={currentTime} />
-          {isMetronomeRunning && (
-            <BeatOverlay currentBeat={currentBeat} isMetronomeRunning={isMetronomeRunning} />
-          )}
           {currentCue && <CueOverlay cue={currentCue} />}
         </div>
       )}
@@ -589,5 +662,4 @@ export default function VideoPlayer({
 
 // Display names for React DevTools
 TimeOverlay.displayName = 'TimeOverlay';
-BeatOverlay.displayName = 'BeatOverlay';
 CueOverlay.displayName = 'CueOverlay';

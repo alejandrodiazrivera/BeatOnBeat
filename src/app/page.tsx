@@ -1,9 +1,9 @@
 'use client';
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { CuePoint } from '../types/types';
-import { useMetronome } from '../hooks/useMetronome';
+import { extractVideoId } from '../utils/youtubeUtils';
 
-// Utility functions for precise time handling
+// U  // Auto-sync functionsctions for precise time handling
 const parseTimeToSeconds = (timeString: string): number => {
   const parts = timeString.split(':');
   const minutes = parseInt(parts[0]);
@@ -16,11 +16,16 @@ const parseTimeToSeconds = (timeString: string): number => {
 };
 import VideoPlayer from '../components/VideoPlayer';
 import VideoControls from '../components/VideoControls';
-import MetronomeControls from '../components/MetronomeControls';
 import CueForm from '../components/CueForm';
 import CueList from '../components/CueList';
 import Header from '../components/Header/Header';
 import Footer from '../components/Footer/Footer';
+
+const formatPracticeTime = (timeInSeconds: number): string => {
+  const minutes = Math.floor(timeInSeconds / 60).toString().padStart(2, '0');
+  const seconds = Math.floor(timeInSeconds % 60).toString().padStart(2, '0');
+  return `${minutes}:${seconds}`;
+};
 
 export default function Home() {
   const [videoUrl, setVideoUrl] = useState('');
@@ -28,75 +33,34 @@ export default function Home() {
   const [currentTime, setCurrentTime] = useState(0);
   const [cuePoints, setCuePoints] = useState<CuePoint[]>([]);
   const [currentCue, setCurrentCue] = useState<CuePoint | null>(null);
-  const [overlaysVisible, setOverlaysVisible] = useState(true);
   const [editingCue, setEditingCue] = useState<CuePoint | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
-  const [wasMetronomeRunning, setWasMetronomeRunning] = useState(false);
-  const [pausedBeat, setPausedBeat] = useState(1);
   const [playbackSpeed, setPlaybackSpeed] = useState(1);
+  const [practiceStart, setPracticeStart] = useState<number | null>(null);
+  const [practiceEnd, setPracticeEnd] = useState<number | null>(null);
+  const [isLoopingPractice, setIsLoopingPractice] = useState(false);
+  const [practiceName, setPracticeName] = useState('');
+  const [isSaveLoopDialogOpen, setIsSaveLoopDialogOpen] = useState(false);
+  const currentTimeRef = useRef(0);
+  const wasPlayingBeforeSaveRef = useRef(false);
   // Removed unused videoFile state
   
-  // Auto-sync lock state
-  const {
-    bpm,
-    currentBeat,
-    isRunning: isMetronomeRunning,
-    timeMode,
-    isMuted,
-    start: startMetronome,
-    stop: stopMetronome,
-    adjustBpm,
-    setCurrentBeat,
-    setTimeMode,
-    tapTempo,
-    toggleMute,
-    getTimeModeConfig
-  } = useMetronome();
-
-  // Refs for accessing video elements
-  const videoElementRef = useRef<HTMLVideoElement | null>(null);
-  const timeUpdateIntervalRef = useRef<NodeJS.Timeout | null>(null);
-
-  useEffect(() => {
-    return () => {
-      stopTimeTracking();
-    };
-  }, []);
-
-  const extractVideoId = (url: string): string | null => {
-    if (url.includes('youtube.com/watch?v=')) {
-      return url.split('v=')[1].split('&')[0];
-    } else if (url.includes('youtu.be/')) {
-      return url.split('youtu.be/')[1].split('?')[0];
-    }
-    return null;
-  };
-
   const loadVideo = () => {
     const id = extractVideoId(videoUrl);
     if (id) {
       setVideoId(id);
       startTimeTracking(true); // Reset time when loading new video
     } else {
-      alert('Please enter a valid YouTube URL');
+      alert('Please enter a valid YouTube URL (videos or reels)');
     }
   };
 
   const startTimeTracking = (resetTime = false) => {
-    stopTimeTracking();
-    if (!isPlaying) return; // Only start timer if video is playing
+    // No need for manual timer - VideoPlayer handles all time updates
     if (resetTime) {
       setCurrentTime(0);
     }
-    // Use higher precision interval for better millisecond accuracy
-    const interval = 100; // Update every 100ms for better precision
-    timeUpdateIntervalRef.current = setInterval(() => {
-      setCurrentTime(prev => {
-        const newTime = prev + (interval / 1000) * playbackSpeed;
-        // Round to 3 decimal places for millisecond precision
-        return Math.round(newTime * 1000) / 1000;
-      });
-    }, interval);
+    // console.log('🎞️ Using VideoPlayer time sync for all videos');
   };
 
   const checkActiveCue = useCallback((time: number) => {
@@ -120,48 +84,15 @@ export default function Home() {
     checkActiveCue(currentTime);
   }, [currentTime, cuePoints, checkActiveCue]);
 
-  const handleAddCue = () => {
-    console.log('🎯 handleAddCue called - Current states:', {
-      isPlaying,
-      isMetronomeRunning,
-      currentTime,
-      currentBeat
-    });
-
-    // Track current states before pausing
-    setWasMetronomeRunning(isMetronomeRunning);
-    setPausedBeat(currentBeat);
-
-    // Pause both video and metronome when adding a cue - use proper handlers
-    if (isPlaying) {
-      console.log('🎬 Video is playing, pausing for cue add');
-      handlePause(); // Use the existing handlePause function for proper state management
-    } else if (isMetronomeRunning) {
-      // If video is already paused but metronome is running, stop just the metronome
-      console.log('🥁 Metronome is running, stopping it');
-      stopMetronome();
-    } else {
-      console.log('🎬 Video and metronome are already stopped');
+  useEffect(() => {
+    if (!isLoopingPractice || practiceStart === null || practiceEnd === null) {
+      return;
     }
 
-    const minutes = Math.floor(currentTime / 60).toString().padStart(2, '0');
-    const seconds = Math.floor(currentTime % 60).toString().padStart(2, '0');
-    const milliseconds = Math.floor((currentTime % 1) * 1000);
-    
-    // Include milliseconds for precision if not zero
-    const time = milliseconds === 0 
-      ? `${minutes}:${seconds}`
-      : `${minutes}:${seconds}.${milliseconds.toString().padStart(3, '0')}`;
-    
-    // For new cues, set editingCue to a template object WITHOUT an id
-    setEditingCue({
-      id: '', // Empty id indicates this is a new cue template
-      time,
-      title: '',
-      note: '',
-      beat: isMetronomeRunning ? currentBeat : undefined
-    });
-  };
+    if (currentTime >= practiceEnd) {
+      setCurrentTime(practiceStart);
+    }
+  }, [currentTime, isLoopingPractice, practiceStart, practiceEnd]);
 
   const handleSubmitCue = (cue: Omit<CuePoint, 'id'>) => {
     console.log('handleSubmitCue called with:', cue);
@@ -186,34 +117,12 @@ export default function Home() {
     }
     setEditingCue(null);
     
-    // Store the previous states before resetting them
-    const shouldResumeMetronome = wasMetronomeRunning;
-    const beatToResume = pausedBeat;
-    
-    // Reset tracking states first
-    setWasMetronomeRunning(false);
-    
-    // Always resume playback after saving a cue
-    if (shouldResumeMetronome) {
-      setCurrentBeat(beatToResume);
-      startMetronome();
-    }
-    console.log('🎬 Always resuming video playback after cue save');
-    handlePlay(); // Always resume video
+    handlePlay();
   };
 
   const handleEditCue = (cue: CuePoint) => {
-    // Track current states before pausing
-    setWasMetronomeRunning(isMetronomeRunning);
-    setPausedBeat(currentBeat);
-
-    // Pause both video and metronome when editing a cue - use proper handlers
     if (isPlaying) {
-      console.log('🎬 Pausing video for cue edit');
-      handlePause(); // Use the existing handlePause function for proper state management
-    } else if (isMetronomeRunning) {
-      // If video is already paused but metronome is running, stop just the metronome
-      stopMetronome();
+      handlePause();
     }
     
     setEditingCue(cue);
@@ -230,10 +139,14 @@ export default function Home() {
 
   const handleJumpToTimestamp = (time: string) => {
     const newTime = parseTimeToSeconds(time);
+    console.log('🎯 Jumping to timestamp:', newTime, 'for video:', videoId ? 'YouTube' : 'local');
     setCurrentTime(newTime);
+    
+    // For YouTube videos, the VideoPlayer will handle the seeking via useEffect
+    // For local videos, the manual timer will update automatically
   };
 
-  const handleVideoPlayStateChange = (newIsPlaying: boolean) => {
+  const handleVideoPlayStateChange = useCallback((newIsPlaying: boolean) => {
     console.log('🎞️ Video player state changed:', newIsPlaying);
     
     // Prevent unnecessary updates if state is already correct
@@ -245,63 +158,34 @@ export default function Home() {
     setIsPlaying(newIsPlaying);
     
     if (newIsPlaying) {
-      console.log('🎞️ Starting time tracking due to video play');
-      startTimeTracking(); // Resume from current time
+      console.log('🎞️ Video resumed playing - relying on VideoPlayer time sync');
     } else {
-      console.log('🎞️ Stopping time tracking due to video pause');
-      stopTimeTracking();
-      // When video is paused, also pause metronome if it's running
-      if (isMetronomeRunning) {
-        console.log('🥁 Auto-pausing metronome because video paused');
-        setWasMetronomeRunning(true);
-        setPausedBeat(currentBeat);
-        stopMetronome();
-      }
+      console.log('🎞️ Video paused');
     }
-  };
+  }, [isPlaying]);
 
-  const handleVideoEnded = () => {
-    console.log('🎬 Video ended - stopping metronome and resetting');
-    
-    // Stop the video playback and time tracking
+  const handleVideoEnded = useCallback(() => {
     setIsPlaying(false);
-    stopTimeTracking();
-    
-    // Stop the metronome if it's running
-    if (isMetronomeRunning) {
-      console.log('🥁 Stopping metronome because video ended');
-      stopMetronome();
-      setCurrentBeat(1); // Reset to beat 1
-    }
-    
-    // Reset any saved states
-    setWasMetronomeRunning(false);
-  };
+  }, []);
+
+  // Memoized time update handler to prevent infinite re-renders
+  const handleTimeUpdate = useCallback((time: number) => {
+    currentTimeRef.current = time;
+    setCurrentTime(time);
+  }, []);
 
   const handlePlay = () => {
     setIsPlaying(true);
-    startTimeTracking(); // Resume from current time, don't reset
+    // VideoPlayer will handle time updates automatically
   };
 
   const handlePause = () => {
     setIsPlaying(false);
-    setWasMetronomeRunning(isMetronomeRunning);
-    setPausedBeat(currentBeat);
-    stopTimeTracking();
-    if (isMetronomeRunning) {
-      stopMetronome();
-    }
   };
 
   const handleStop = () => {
     setIsPlaying(false);
-    setCurrentTime(0); // Reset to beginning
-    stopTimeTracking();
-    if (isMetronomeRunning) {
-      stopMetronome();
-    }
-    // Reset metronome beat to 1
-    setCurrentBeat(1);
+    setCurrentTime(0);
   };
 
   const handleSkipBack = () => {
@@ -314,57 +198,99 @@ export default function Home() {
     setCurrentTime(newTime);
   };
 
+  const handleMarkPracticeStart = () => {
+    const markedTime = Math.max(currentTimeRef.current, currentTime);
+    setPracticeStart(markedTime);
+    if (practiceEnd !== null && practiceEnd <= markedTime) {
+      setPracticeEnd(null);
+      setIsLoopingPractice(false);
+    }
+  };
+
+  const handleMarkPracticeEnd = () => {
+    const markedTime = Math.max(currentTimeRef.current, currentTime);
+    if (practiceStart === null || markedTime <= practiceStart) {
+      alert('Mark a start point before marking an end point.');
+      return;
+    }
+
+    setPracticeEnd(markedTime);
+    setIsLoopingPractice(false);
+  };
+
+  const handleClearPracticeSection = () => {
+    setPracticeStart(null);
+    setPracticeEnd(null);
+    setIsLoopingPractice(false);
+    setPracticeName('');
+  };
+
+  const handleSavePracticeLoop = () => {
+    if (practiceStart === null || practiceEnd === null) {
+      alert('Mark both a start and end point before saving a practice loop.');
+      return;
+    }
+
+    const title = practiceName.trim() || `Practice loop ${cuePoints.length + 1}`;
+    const savedLoop: CuePoint = {
+      id: Date.now().toString(),
+      time: formatPracticeTime(practiceStart),
+      endTime: formatPracticeTime(practiceEnd),
+      title,
+      note: ''
+    };
+
+    setCuePoints(prev => [...prev, savedLoop]);
+    setPracticeStart(null);
+    setPracticeEnd(null);
+    setIsLoopingPractice(false);
+    setPracticeName('');
+    setIsSaveLoopDialogOpen(false);
+    if (wasPlayingBeforeSaveRef.current) {
+      handlePlay();
+    }
+    wasPlayingBeforeSaveRef.current = false;
+  };
+
+  const handleOpenSaveLoopDialog = () => {
+    if (practiceStart === null || practiceEnd === null) {
+      alert('Mark both a start and end point before saving a practice loop.');
+      return;
+    }
+
+    wasPlayingBeforeSaveRef.current = isPlaying;
+    if (isPlaying) {
+      handlePause();
+    }
+    setIsSaveLoopDialogOpen(true);
+  };
+
+  const handleCloseSaveLoopDialog = () => {
+    setIsSaveLoopDialogOpen(false);
+    if (wasPlayingBeforeSaveRef.current) {
+      handlePlay();
+    }
+    wasPlayingBeforeSaveRef.current = false;
+  };
+
+  const handleLoopCue = (cue: CuePoint) => {
+    if (!cue.endTime) {
+      handleJumpToTimestamp(cue.time);
+      return;
+    }
+
+    const start = parseTimeToSeconds(cue.time);
+    const end = parseTimeToSeconds(cue.endTime);
+    setPracticeStart(start);
+    setPracticeEnd(end);
+    setCurrentTime(start);
+    setIsLoopingPractice(true);
+  };
+
   const handleSpeedChange = (speed: number) => {
     setPlaybackSpeed(speed);
-    // Restart time tracking with new speed if currently playing
-    if (isPlaying) {
-      startTimeTracking(false);
-    }
+    // VideoPlayer will automatically handle the speed change via its playbackSpeed prop
   };
-
-  const handleToggleOverlay = () => {
-    setOverlaysVisible(prev => !prev);
-  };
-
-  const handleStartMetronome = () => {
-    // Stop current metronome if running
-    if (isMetronomeRunning) {
-      stopMetronome();
-    }
-    
-    if (timeMode === 'flamenco-12') {
-      // For flamenco, start ON beat 12 (flamenco technique)
-      setCurrentBeat(12);
-    } else {
-      // For 8-beat, set to last beat so first tick will be beat 1
-      const config = getTimeModeConfig();
-      setCurrentBeat(config.beatsPerCycle);
-    }
-    
-    // Start metronome
-    startMetronome();
-  };
-
-  const stopTimeTracking = () => {
-    if (timeUpdateIntervalRef.current) {
-      clearInterval(timeUpdateIntervalRef.current);
-      timeUpdateIntervalRef.current = null;
-    }
-  };
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
   return (
     <div className="relative min-h-screen bg-gradient-to-br from-[white] via-[#F9FAFB] to-[white]">
@@ -377,7 +303,7 @@ export default function Home() {
           type="text"
           value={videoUrl}
           onChange={(e) => setVideoUrl(e.target.value)}
-          placeholder="Paste YouTube URL..."
+          placeholder="Paste YouTube URL (videos or reels)..."
           className="flex-1 p-3 border-2 border-InputboxColor rounded-lg focus:ring-2 focus:ring-InputboxHighlight focus:border-InputboxHighlight focus:outline-none text-InputText placeholder-InputboxColor"
         />
         <button
@@ -392,21 +318,17 @@ export default function Home() {
         <VideoPlayer
           videoId={videoId}
           currentTime={currentTime}
-          currentBeat={currentBeat}
           currentCue={currentCue}
-          overlaysVisible={overlaysVisible}
-          isMetronomeRunning={isMetronomeRunning}
           isPlaying={isPlaying}
           playbackSpeed={playbackSpeed}
-          onTimeUpdate={setCurrentTime}
+          onTimeUpdate={handleTimeUpdate}
           onPlayStateChange={handleVideoPlayStateChange}
           onVideoEnded={handleVideoEnded}
-          onVideoElementReady={(element) => {
-            videoElementRef.current = element;
-          }}
+          debug={false}
           onVideoFileUploaded={(file) => {
             console.log('📁 VideoPlayer uploaded file:', file.name);
-            // File uploaded but not stored in state
+            setVideoId(null);
+            setCurrentTime(0);
           }}
         />
       </div>
@@ -419,45 +341,137 @@ export default function Home() {
           onSkipBack={handleSkipBack}
           onSkipForward={handleSkipForward}
           onSpeedChange={handleSpeedChange}
-          onAddCue={handleAddCue}
-          onToggleOverlay={handleToggleOverlay}
-          overlaysVisible={overlaysVisible}
           playbackSpeed={playbackSpeed}
         />
       </div>
 
-      <div className="space-y-6">
-        <MetronomeControls
-          bpm={bpm}
-          currentBeat={currentBeat}
-          isRunning={isMetronomeRunning}
-          timeMode={timeMode}
-          isMuted={isMuted}
-          onTapTempo={tapTempo}
-          onStart={handleStartMetronome}
-          onStop={stopMetronome}
-          onAdjustBpm={adjustBpm}
-          onBpmChange={(newBpm) => adjustBpm(newBpm - bpm)}
-          onTimeModeChange={setTimeMode}
-          onToggleMute={toggleMute}
-          getTimeModeConfig={getTimeModeConfig}
-        />
+      <div className="mb-6 rounded-lg border-2 border-Borders bg-white p-4 shadow-sm">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 className="font-semibold text-Title">Set Loop</h2>
+            {practiceStart !== null && (
+              <p className="mt-1 text-sm font-medium text-Cue">
+                Start point saved: {formatPracticeTime(practiceStart)}
+              </p>
+            )}
+            <p className="text-sm text-Text">
+              {practiceStart !== null && practiceEnd !== null
+                ? `Ready to loop: ${formatPracticeTime(practiceStart)} - ${formatPracticeTime(practiceEnd)}`
+                : practiceStart !== null
+                  ? `Start marked at ${formatPracticeTime(practiceStart)}. Play to the exit point, then mark end.`
+                  : 'Choose the start and end points for your practice section.'}
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <button
+              onClick={handleMarkPracticeStart}
+              className="rounded-lg border-2 border-Cue bg-white px-3 py-2 text-sm font-medium text-Cue hover:bg-Cue hover:text-white"
+            >
+              Mark start
+            </button>
+            <button
+              onClick={handleMarkPracticeEnd}
+              className="rounded-lg border-2 border-Cue bg-white px-3 py-2 text-sm font-medium text-Cue hover:bg-Cue hover:text-white"
+            >
+              Mark end
+            </button>
+            <button
+              onClick={handleOpenSaveLoopDialog}
+              disabled={practiceStart === null || practiceEnd === null}
+              className="rounded-lg bg-Cue px-3 py-2 text-sm font-medium text-white hover:bg-CueHover disabled:cursor-not-allowed disabled:bg-gray-300"
+            >
+              Save loop
+            </button>
+            {(practiceStart !== null || practiceEnd !== null) && (
+              <button
+                onClick={handleClearPracticeSection}
+                className="rounded-lg border-2 border-Borders bg-white px-3 py-2 text-sm font-medium text-Text hover:bg-gray-100"
+              >
+                Clear
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
 
+      <div className="space-y-6">
         <CueList
           cuePoints={cuePoints}
           currentTime={currentTime}
           onEdit={handleEditCue}
           onDelete={handleDeleteCue}
           onJump={handleJumpToTimestamp}
+          onLoop={handleLoopCue}
         />
       </div>
+
+      {isSaveLoopDialogOpen && (
+        <div
+          className="fixed inset-0 z-40 flex items-center justify-center bg-black/50 px-4"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) {
+              handleCloseSaveLoopDialog();
+            }
+          }}
+        >
+          <form
+            onSubmit={(event) => {
+              event.preventDefault();
+              handleSavePracticeLoop();
+            }}
+            className="w-full max-w-md rounded-xl border-2 border-Borders bg-white p-6 shadow-xl"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="save-loop-title"
+          >
+            <h2 id="save-loop-title" className="text-xl font-semibold text-Title">
+              Save practice loop
+            </h2>
+            <p className="mt-2 text-sm text-Text">
+              Give this section a name so you can find it again in your cue points.
+            </p>
+            <p className="mt-3 rounded-lg bg-gray-100 px-3 py-2 text-sm font-medium text-Text">
+              {practiceStart !== null && practiceEnd !== null
+                ? `${formatPracticeTime(practiceStart)} - ${formatPracticeTime(practiceEnd)}`
+                : ''}
+            </p>
+            <label htmlFor="practice-loop-name" className="sr-only">
+              Practice loop name
+            </label>
+            <input
+              id="practice-loop-name"
+              type="text"
+              value={practiceName}
+              onChange={(event) => setPracticeName(event.target.value)}
+              placeholder="e.g. Opening footwork"
+              autoFocus
+              className="mt-4 w-full rounded-lg border-2 border-Borders px-3 py-3 text-Text outline-none focus:border-Cue"
+              maxLength={80}
+              required
+            />
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={handleCloseSaveLoopDialog}
+                className="rounded-lg border-2 border-Borders px-4 py-2 text-sm font-medium text-Text hover:bg-gray-100"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="rounded-lg bg-Cue px-4 py-2 text-sm font-medium text-white hover:bg-CueHover"
+              >
+                Save loop
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
 
       {editingCue && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-40 flex items-center justify-center">
           <CueForm
             currentTime={currentTime}
-            currentBeat={currentBeat}
-            timeMode={timeMode}
             onSubmit={handleSubmitCue}
             editingCue={editingCue}
             onCancel={() => setEditingCue(null)}
