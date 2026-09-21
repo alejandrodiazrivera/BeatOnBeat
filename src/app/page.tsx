@@ -39,10 +39,13 @@ export default function Home() {
   const [practiceStart, setPracticeStart] = useState<number | null>(null);
   const [practiceEnd, setPracticeEnd] = useState<number | null>(null);
   const [isLoopingPractice, setIsLoopingPractice] = useState(false);
+  const [loopMode, setLoopMode] = useState<'inactive' | 'activated' | 'active'>('inactive');
+  const [isMirrored, setIsMirrored] = useState(false);
   const [practiceName, setPracticeName] = useState('');
   const [isSaveLoopDialogOpen, setIsSaveLoopDialogOpen] = useState(false);
   const currentTimeRef = useRef(0);
-  const wasPlayingBeforeSaveRef = useRef(false);
+  const resumeAfterSaveRef = useRef(false);
+  const ignorePauseUntilRef = useRef(0);
   // Removed unused videoFile state
   
   const loadVideo = () => {
@@ -93,6 +96,20 @@ export default function Home() {
       setCurrentTime(practiceStart);
     }
   }, [currentTime, isLoopingPractice, practiceStart, practiceEnd]);
+
+  useEffect(() => {
+    if (isSaveLoopDialogOpen || !resumeAfterSaveRef.current) {
+      return;
+    }
+
+    const resumeTimer = window.setTimeout(() => {
+      resumeAfterSaveRef.current = false;
+      ignorePauseUntilRef.current = Date.now() + 1000;
+      setIsPlaying(true);
+    }, 0);
+
+    return () => window.clearTimeout(resumeTimer);
+  }, [isSaveLoopDialogOpen]);
 
   const handleSubmitCue = (cue: Omit<CuePoint, 'id'>) => {
     console.log('handleSubmitCue called with:', cue);
@@ -148,6 +165,10 @@ export default function Home() {
 
   const handleVideoPlayStateChange = useCallback((newIsPlaying: boolean) => {
     console.log('🎞️ Video player state changed:', newIsPlaying);
+
+    if (!newIsPlaying && Date.now() < ignorePauseUntilRef.current) {
+      return;
+    }
     
     // Prevent unnecessary updates if state is already correct
     if (isPlaying === newIsPlaying) {
@@ -201,10 +222,9 @@ export default function Home() {
   const handleMarkPracticeStart = () => {
     const markedTime = Math.max(currentTimeRef.current, currentTime);
     setPracticeStart(markedTime);
-    if (practiceEnd !== null && practiceEnd <= markedTime) {
-      setPracticeEnd(null);
-      setIsLoopingPractice(false);
-    }
+    setPracticeEnd(null);
+    setIsLoopingPractice(false);
+    setLoopMode('activated');
   };
 
   const handleMarkPracticeEnd = () => {
@@ -215,13 +235,30 @@ export default function Home() {
     }
 
     setPracticeEnd(markedTime);
+    setIsLoopingPractice(true);
+    setLoopMode('active');
+  };
+
+  const handleLoopModeChange = () => {
+    if (loopMode === 'inactive') {
+      handleMarkPracticeStart();
+      return;
+    }
+
+    if (loopMode === 'activated') {
+      handleMarkPracticeEnd();
+      return;
+    }
+
     setIsLoopingPractice(false);
+    setLoopMode('inactive');
   };
 
   const handleClearPracticeSection = () => {
     setPracticeStart(null);
     setPracticeEnd(null);
     setIsLoopingPractice(false);
+    setLoopMode('inactive');
     setPracticeName('');
   };
 
@@ -244,12 +281,10 @@ export default function Home() {
     setPracticeStart(null);
     setPracticeEnd(null);
     setIsLoopingPractice(false);
+    setLoopMode('inactive');
     setPracticeName('');
+    resumeAfterSaveRef.current = true;
     setIsSaveLoopDialogOpen(false);
-    if (wasPlayingBeforeSaveRef.current) {
-      handlePlay();
-    }
-    wasPlayingBeforeSaveRef.current = false;
   };
 
   const handleOpenSaveLoopDialog = () => {
@@ -258,7 +293,6 @@ export default function Home() {
       return;
     }
 
-    wasPlayingBeforeSaveRef.current = isPlaying;
     if (isPlaying) {
       handlePause();
     }
@@ -267,10 +301,6 @@ export default function Home() {
 
   const handleCloseSaveLoopDialog = () => {
     setIsSaveLoopDialogOpen(false);
-    if (wasPlayingBeforeSaveRef.current) {
-      handlePlay();
-    }
-    wasPlayingBeforeSaveRef.current = false;
   };
 
   const handleLoopCue = (cue: CuePoint) => {
@@ -283,8 +313,11 @@ export default function Home() {
     const end = parseTimeToSeconds(cue.endTime);
     setPracticeStart(start);
     setPracticeEnd(end);
+    currentTimeRef.current = start;
     setCurrentTime(start);
     setIsLoopingPractice(true);
+    setLoopMode('active');
+    handlePlay();
   };
 
   const handleSpeedChange = (speed: number) => {
@@ -320,6 +353,9 @@ export default function Home() {
           currentTime={currentTime}
           currentCue={currentCue}
           isPlaying={isPlaying}
+          isMirrored={isMirrored}
+          loop={loopMode !== 'inactive'}
+          muted={false}
           playbackSpeed={playbackSpeed}
           onTimeUpdate={handleTimeUpdate}
           onPlayStateChange={handleVideoPlayStateChange}
@@ -340,58 +376,17 @@ export default function Home() {
           onStop={handleStop}
           onSkipBack={handleSkipBack}
           onSkipForward={handleSkipForward}
+          onToggleMirror={() => setIsMirrored(prev => !prev)}
+          isMirrored={isMirrored}
+          onLoopModeChange={handleLoopModeChange}
+          onSaveLoop={handleOpenSaveLoopDialog}
+          onClearLoop={handleClearPracticeSection}
+          loopMode={loopMode}
+          canSaveLoop={practiceStart !== null && practiceEnd !== null}
+          canClearLoop={practiceStart !== null || practiceEnd !== null}
           onSpeedChange={handleSpeedChange}
           playbackSpeed={playbackSpeed}
         />
-      </div>
-
-      <div className="mb-6 rounded-lg border-2 border-Borders bg-white p-4 shadow-sm">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h2 className="font-semibold text-Title">Set Loop</h2>
-            {practiceStart !== null && (
-              <p className="mt-1 text-sm font-medium text-Cue">
-                Start point saved: {formatPracticeTime(practiceStart)}
-              </p>
-            )}
-            <p className="text-sm text-Text">
-              {practiceStart !== null && practiceEnd !== null
-                ? `Ready to loop: ${formatPracticeTime(practiceStart)} - ${formatPracticeTime(practiceEnd)}`
-                : practiceStart !== null
-                  ? `Start marked at ${formatPracticeTime(practiceStart)}. Play to the exit point, then mark end.`
-                  : 'Choose the start and end points for your practice section.'}
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <button
-              onClick={handleMarkPracticeStart}
-              className="rounded-lg border-2 border-Cue bg-white px-3 py-2 text-sm font-medium text-Cue hover:bg-Cue hover:text-white"
-            >
-              Mark start
-            </button>
-            <button
-              onClick={handleMarkPracticeEnd}
-              className="rounded-lg border-2 border-Cue bg-white px-3 py-2 text-sm font-medium text-Cue hover:bg-Cue hover:text-white"
-            >
-              Mark end
-            </button>
-            <button
-              onClick={handleOpenSaveLoopDialog}
-              disabled={practiceStart === null || practiceEnd === null}
-              className="rounded-lg bg-Cue px-3 py-2 text-sm font-medium text-white hover:bg-CueHover disabled:cursor-not-allowed disabled:bg-gray-300"
-            >
-              Save loop
-            </button>
-            {(practiceStart !== null || practiceEnd !== null) && (
-              <button
-                onClick={handleClearPracticeSection}
-                className="rounded-lg border-2 border-Borders bg-white px-3 py-2 text-sm font-medium text-Text hover:bg-gray-100"
-              >
-                Clear
-              </button>
-            )}
-          </div>
-        </div>
       </div>
 
       <div className="space-y-6">

@@ -5,6 +5,8 @@ import { useEffect, useRef, useState, useMemo, memo, useCallback } from 'react';
 interface YTPlayer {
   playVideo: () => void;
   pauseVideo: () => void;
+  mute: () => void;
+  unMute: () => void;
   seekTo: (seconds: number, allowSeekAhead: boolean) => void;
   setPlaybackRate: (suggestedRate: number) => void;
   destroy: () => void;
@@ -17,6 +19,9 @@ interface VideoPlayerProps {
   currentCue?: CuePoint | null;
   overlaysVisible?: boolean;
   isPlaying: boolean;
+  isMirrored?: boolean;
+  loop?: boolean;
+  muted?: boolean;
   playbackSpeed?: number;
   onTimeUpdate?: (time: number) => void;
   onVideoElementReady?: (videoElement: HTMLVideoElement) => void;
@@ -53,7 +58,7 @@ interface YTPlayerOptions {
   height: string;
   width: string;
   videoId: string;
-  playerVars: Record<string, number>;
+  playerVars: Record<string, number | string>;
   events: {
     onReady: () => void;
     onStateChange: (event: { data: number }) => void;
@@ -99,6 +104,9 @@ export default function VideoPlayer({
   currentCue,
   overlaysVisible = true,
   isPlaying,
+  isMirrored = false,
+  loop = false,
+  muted = false,
   playbackSpeed = 1,
   onTimeUpdate,
   onVideoElementReady,
@@ -128,9 +136,11 @@ export default function VideoPlayer({
     autoplay: isPlaying ? 1 : 0,
     controls: 0,
     disablekb: 1,
+    loop: loop ? 1 : 0,
+    playlist: loop && videoId ? videoId : undefined,
     rel: 0,
     modestbranding: 1
-  }), [isPlaying]);
+  }), [isPlaying, loop, videoId]);
 
   // Cleanup YouTube player
   const cleanupPlayer = useCallback(() => {
@@ -434,6 +444,18 @@ export default function VideoPlayer({
     }
   }, [playbackSpeed, playerReady, videoId, debug]);
 
+  useEffect(() => {
+    if (videoId && playerRef.current) {
+      if (muted) {
+        playerRef.current.mute?.();
+      } else {
+        playerRef.current.unMute?.();
+      }
+    } else if (videoRef.current) {
+      videoRef.current.muted = muted;
+    }
+  }, [muted, videoId, playerReady]);
+
   // Time update sync - handles both YouTube and local videos
   useEffect(() => {
     if (!onTimeUpdate) return;
@@ -566,7 +588,7 @@ export default function VideoPlayer({
       {videoId && !videoSrc && (
         <div 
           ref={containerRef} 
-          className="absolute inset-0"
+          className={`absolute inset-0 ${isMirrored ? 'mirror-video' : ''}`}
         >
           {!playerReady && (
             <Image
@@ -591,9 +613,10 @@ export default function VideoPlayer({
             }
           }}
           src={videoSrc}
-          className="absolute inset-0 w-full h-full object-contain bg-black cursor-pointer"
+          className={`absolute inset-0 w-full h-full object-contain bg-black cursor-pointer ${isMirrored ? 'mirror-video' : ''}`}
           playsInline
-          muted={!userInteracted}
+          loop={loop}
+          muted={muted}
           onLoadedData={() => {
             if (videoRef.current) {
               onVideoElementReady?.(videoRef.current);
@@ -615,7 +638,7 @@ export default function VideoPlayer({
       )}
 
       {/* Unmute indicator for local videos */}
-      {videoSrc && !userInteracted && (
+      {videoSrc && muted && (
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
           <div className="bg-black/70 text-white px-4 py-2 rounded-lg flex items-center gap-2">
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
