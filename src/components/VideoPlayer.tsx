@@ -1,5 +1,5 @@
 import Image from 'next/image';
-import { useEffect, useRef, useState, useMemo, memo, useCallback } from 'react';
+import { useEffect, useRef, useState, useMemo, memo, useCallback, type RefObject } from 'react';
 
 // Types
 interface YTPlayer {
@@ -32,6 +32,7 @@ interface VideoPlayerProps {
   aspectRatio?: number;
   fullHeight?: boolean;
   allowUploads?: boolean;
+  fileInputRef?: RefObject<HTMLInputElement | null>;
 }
 
 interface CuePoint {
@@ -116,7 +117,8 @@ export default function VideoPlayer({
   debug = false,
   aspectRatio = 16/9,
   fullHeight = false,
-  allowUploads = true
+  allowUploads = true,
+  fileInputRef
 }: VideoPlayerProps) {
   // Refs
   const playerRef = useRef<YTPlayer | null>(null);
@@ -551,19 +553,12 @@ export default function VideoPlayer({
       {/* Upload Area (when no video loaded) */}
       {allowUploads && !videoId && !videoSrc && (
         <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 p-4">
-          <label className={`
+          <label htmlFor="video-file-input" className={`
             flex flex-col items-center justify-center 
             w-full h-full border-2 border-dashed rounded-lg 
             hover:bg-gray-900/50 transition-colors cursor-pointer
             ${isUploading ? 'border-blue-500' : 'border-gray-600'}
           `}>
-            <input 
-              type="file" 
-              accept="video/*" 
-              onChange={handleFileUpload}
-              className="hidden" 
-              disabled={isUploading}
-            />
             <div className="text-center p-6">
               {isUploading ? (
                 <>
@@ -582,6 +577,24 @@ export default function VideoPlayer({
             </div>
           </label>
         </div>
+      )}
+
+      {allowUploads && (
+        <>
+          <input
+            ref={element => {
+              if (fileInputRef) {
+                fileInputRef.current = element;
+              }
+            }}
+            id="video-file-input"
+            type="file"
+            accept="video/*"
+            onChange={handleFileUpload}
+            className="hidden"
+            disabled={isUploading}
+          />
+        </>
       )}
 
       {/* YouTube Player */}

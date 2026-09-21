@@ -1,5 +1,5 @@
 import { FC } from 'react';
-import {Play,Pause,Square,Rewind,FastForward,FlipHorizontal2,Repeat,Save,X} from 'lucide-react';
+import {Play,Pause,Square,Rewind,FastForward,FlipHorizontal2,Repeat,Save,X,Upload} from 'lucide-react';
 
 interface VideoControlsProps {
   onPlay: () => void;
@@ -12,6 +12,7 @@ interface VideoControlsProps {
   onLoopModeChange?: () => void;
   onSaveLoop?: () => void;
   onClearLoop?: () => void;
+  onOpenFilePicker?: () => void;
   isMirrored?: boolean;
   loopMode?: 'inactive' | 'activated' | 'active';
   canSaveLoop?: boolean;
@@ -30,6 +31,7 @@ const VideoControls: FC<VideoControlsProps> = ({
   onLoopModeChange = () => {},
   onSaveLoop = () => {},
   onClearLoop = () => {},
+  onOpenFilePicker = () => {},
   isMirrored = false,
   loopMode = 'inactive',
   canSaveLoop = false,
@@ -101,6 +103,15 @@ const VideoControls: FC<VideoControlsProps> = ({
       </button>
 
       <button
+        onClick={onOpenFilePicker}
+        className="p-2 rounded-lg bg-Ff-Fr text-white hover:bg-Ff-FrHover transition-colors duration-200 flex items-center justify-center"
+        aria-label="Choose video file"
+        title="Choose video file"
+      >
+        <Upload className="w-5 h-5" />
+      </button>
+
+      <button
         onClick={handleSpeedChange}
         className="w-16 min-w-16 max-w-16 h-10 flex-none p-2 bg-white border-2 border-Borders rounded-lg text-Text hover:bg-gray-100 focus:ring-2 focus:ring-InputboxHighlight focus:outline-none inline-flex items-center justify-center"
         aria-label={`Playback speed ${speedLabel}. Change speed`}
@@ -117,7 +128,7 @@ const VideoControls: FC<VideoControlsProps> = ({
       >
         <span className="loop-mode-button">
           <Repeat className="mr-1 inline-block h-4 w-4" />
-          {loopMode === 'activated' ? 'Loop in' : loopMode === 'active' ? 'Loop out' : 'Loop'}
+          {loopMode === 'activated' ? 'Loop out' : loopMode === 'active' ? 'Loop' : 'Loop in'}
         </span>
       </button>
 

@@ -1,5 +1,6 @@
 'use client';
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { PanelRightClose, PanelRightOpen } from 'lucide-react';
 import { CuePoint } from '../types/types';
 import { extractVideoId } from '../utils/youtubeUtils';
 
@@ -43,7 +44,9 @@ export default function Home() {
   const [isMirrored, setIsMirrored] = useState(false);
   const [practiceName, setPracticeName] = useState('');
   const [isSaveLoopDialogOpen, setIsSaveLoopDialogOpen] = useState(false);
+  const [isSavedLoopsOpen, setIsSavedLoopsOpen] = useState(false);
   const currentTimeRef = useRef(0);
+  const videoFileInputRef = useRef<HTMLInputElement>(null);
   const resumeAfterSaveRef = useRef(false);
   const ignorePauseUntilRef = useRef(0);
   // Removed unused videoFile state
@@ -225,6 +228,7 @@ export default function Home() {
     setPracticeEnd(null);
     setIsLoopingPractice(false);
     setLoopMode('activated');
+    setIsSavedLoopsOpen(true);
   };
 
   const handleMarkPracticeEnd = () => {
@@ -330,7 +334,7 @@ export default function Home() {
       <Header />
       
       <main className="pt-24 px-4">
-        <div className="container mx-auto max-w-4xl">
+        <div className="container mx-auto max-w-6xl">
       <div className="flex flex-col md:flex-row gap-2 mb-4">
         <input
           type="text"
@@ -347,57 +351,91 @@ export default function Home() {
         </button>
       </div>
 
-      <div className="mb-4 aspect-video bg-black rounded-lg overflow-hidden">
-        <VideoPlayer
-          videoId={videoId}
-          currentTime={currentTime}
-          currentCue={currentCue}
-          isPlaying={isPlaying}
-          isMirrored={isMirrored}
-          loop={loopMode !== 'inactive'}
-          muted={false}
-          playbackSpeed={playbackSpeed}
-          onTimeUpdate={handleTimeUpdate}
-          onPlayStateChange={handleVideoPlayStateChange}
-          onVideoEnded={handleVideoEnded}
-          debug={false}
-          onVideoFileUploaded={(file) => {
-            console.log('📁 VideoPlayer uploaded file:', file.name);
-            setVideoId(null);
-            setCurrentTime(0);
-          }}
-        />
-      </div>
+      <div className="relative flex flex-col items-start gap-6 lg:flex-row">
+        <div className="min-w-0 flex-1">
+          <div className="mb-4 aspect-video bg-black rounded-lg overflow-hidden">
+            <VideoPlayer
+              videoId={videoId}
+              currentTime={currentTime}
+              currentCue={currentCue}
+              isPlaying={isPlaying}
+              isMirrored={isMirrored}
+              loop={loopMode !== 'inactive'}
+              muted={false}
+              playbackSpeed={playbackSpeed}
+              onTimeUpdate={handleTimeUpdate}
+              onPlayStateChange={handleVideoPlayStateChange}
+              onVideoEnded={handleVideoEnded}
+              fileInputRef={videoFileInputRef}
+              debug={false}
+              onVideoFileUploaded={(file) => {
+                console.log('📁 VideoPlayer uploaded file:', file.name);
+                setVideoId(null);
+                setCurrentTime(0);
+              }}
+            />
+          </div>
 
-      <div className="flex flex-wrap gap-3 mb-6 p-3 bg-transparent rounded-lg">
-        <VideoControls
-          onPlay={handlePlay}
-          onPause={handlePause}
-          onStop={handleStop}
-          onSkipBack={handleSkipBack}
-          onSkipForward={handleSkipForward}
-          onToggleMirror={() => setIsMirrored(prev => !prev)}
-          isMirrored={isMirrored}
-          onLoopModeChange={handleLoopModeChange}
-          onSaveLoop={handleOpenSaveLoopDialog}
-          onClearLoop={handleClearPracticeSection}
-          loopMode={loopMode}
-          canSaveLoop={practiceStart !== null && practiceEnd !== null}
-          canClearLoop={practiceStart !== null || practiceEnd !== null}
-          onSpeedChange={handleSpeedChange}
-          playbackSpeed={playbackSpeed}
-        />
-      </div>
+          <div className="flex flex-wrap gap-3 mb-6 p-3 bg-transparent rounded-lg">
+            <VideoControls
+              onPlay={handlePlay}
+              onPause={handlePause}
+              onStop={handleStop}
+              onSkipBack={handleSkipBack}
+              onSkipForward={handleSkipForward}
+              onToggleMirror={() => setIsMirrored(prev => !prev)}
+              onOpenFilePicker={() => videoFileInputRef.current?.click()}
+              isMirrored={isMirrored}
+              onLoopModeChange={handleLoopModeChange}
+              onSaveLoop={handleOpenSaveLoopDialog}
+              onClearLoop={handleClearPracticeSection}
+              loopMode={loopMode}
+              canSaveLoop={practiceStart !== null && practiceEnd !== null}
+              canClearLoop={practiceStart !== null || practiceEnd !== null}
+              onSpeedChange={handleSpeedChange}
+              playbackSpeed={playbackSpeed}
+            />
+          </div>
+        </div>
 
-      <div className="space-y-6">
-        <CueList
-          cuePoints={cuePoints}
-          currentTime={currentTime}
-          onEdit={handleEditCue}
-          onDelete={handleDeleteCue}
-          onJump={handleJumpToTimestamp}
-          onLoop={handleLoopCue}
-        />
+        <aside
+          className={`relative hidden shrink-0 overflow-hidden transition-[width] duration-300 ease-in-out lg:block ${
+            isSavedLoopsOpen ? 'w-[360px]' : 'w-0'
+          }`}
+          aria-hidden={!isSavedLoopsOpen}
+        >
+          <div className="w-[360px]">
+            <CueList
+              cuePoints={cuePoints}
+              currentTime={currentTime}
+              onEdit={handleEditCue}
+              onDelete={handleDeleteCue}
+              onJump={handleJumpToTimestamp}
+              onLoop={handleLoopCue}
+            />
+          </div>
+        </aside>
+
+        <button
+          type="button"
+          onClick={() => setIsSavedLoopsOpen(prev => !prev)}
+          className="absolute right-0 top-0 z-10 hidden h-10 w-10 translate-x-1/2 items-center justify-center rounded-full border-2 border-Borders bg-white text-Text shadow-md transition-colors hover:bg-gray-100 lg:flex"
+          aria-label={isSavedLoopsOpen ? 'Collapse saved loops sidebar' : 'Open saved loops sidebar'}
+          title={isSavedLoopsOpen ? 'Collapse saved loops sidebar' : 'Open saved loops sidebar'}
+        >
+          {isSavedLoopsOpen ? <PanelRightClose className="h-5 w-5" /> : <PanelRightOpen className="h-5 w-5" />}
+        </button>
+
+        <div className="w-full lg:hidden">
+          <CueList
+            cuePoints={cuePoints}
+            currentTime={currentTime}
+            onEdit={handleEditCue}
+            onDelete={handleDeleteCue}
+            onJump={handleJumpToTimestamp}
+            onLoop={handleLoopCue}
+          />
+        </div>
       </div>
 
       {isSaveLoopDialogOpen && (
