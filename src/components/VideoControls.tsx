@@ -122,7 +122,7 @@ const VideoControls: FC<VideoControlsProps> = ({
 
       <button
         onClick={onLoopModeChange}
-        className={`loop-mode-wrapper loop-mode-wrapper--${loopMode}`}
+        className={`loop-mode-wrapper w-[110px] min-w-[110px] ${loopMode === 'activated' ? 'loop-mode-wrapper--active' : ''}`}
         aria-label={`Loop mode: ${loopMode}`}
         title={loopMode === 'activated' ? 'Finish loop' : loopMode === 'active' ? 'Stop loop' : 'Start loop'}
       >
@@ -146,11 +146,11 @@ const VideoControls: FC<VideoControlsProps> = ({
       {canClearLoop && (
         <button
           onClick={onClearLoop}
-          className="inline-flex h-10 items-center justify-center gap-1 rounded-lg border-2 border-Borders bg-white px-3 py-2 text-sm font-medium text-Text transition-colors duration-200 hover:bg-gray-100"
+          className="inline-flex h-10 items-center justify-center gap-1 rounded-lg border-2 border-Borders bg-white px-2 py-2 text-xs font-medium text-Text transition-colors duration-200 hover:bg-gray-100"
           aria-label="Clear loop"
           title="Clear loop"
         >
-          <X className="h-4 w-4" />
+          <X className="h-3.5 w-3.5" />
           Clear
         </button>
       )}
