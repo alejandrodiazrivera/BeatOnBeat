@@ -1,5 +1,5 @@
 import Image from 'next/image';
-import { useEffect, useRef, useState, useMemo, memo, useCallback, type RefObject } from 'react';
+import { useEffect, useRef, useState, memo, useCallback, type RefObject } from 'react';
 
 // Types
 interface YTPlayer {
@@ -132,17 +132,23 @@ export default function VideoPlayer({
   const [videoSrc, setVideoSrc] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [userInteracted, setUserInteracted] = useState(false);
+  const isPlayingRef = useRef(isPlaying);
+  const onPlayStateChangeRef = useRef(onPlayStateChange);
+  const onVideoEndedRef = useRef(onVideoEnded);
 
-  // Memoized player vars
-  const playerVars = useMemo(() => ({
-    autoplay: isPlaying ? 1 : 0,
+  useEffect(() => {
+    isPlayingRef.current = isPlaying;
+    onPlayStateChangeRef.current = onPlayStateChange;
+    onVideoEndedRef.current = onVideoEnded;
+  }, [isPlaying, onPlayStateChange, onVideoEnded]);
+
+  const playerVars = {
+    autoplay: 0,
     controls: 0,
     disablekb: 1,
-    loop: loop ? 1 : 0,
-    playlist: loop && videoId ? videoId : undefined,
     rel: 0,
     modestbranding: 1
-  }), [isPlaying, loop, videoId]);
+  };
 
   // Cleanup YouTube player
   const cleanupPlayer = useCallback(() => {
@@ -254,7 +260,7 @@ export default function VideoPlayer({
               if (debug) console.log('YouTube Player state:', event.data);
               
               // Sync YouTube player state with React state
-              if (onPlayStateChange) {
+              if (onPlayStateChangeRef.current) {
                 const isNowPlaying = event.data === window.YT.PlayerState.PLAYING;
                 const isNowPaused = event.data === window.YT.PlayerState.PAUSED;
                 const isEnded = event.data === window.YT.PlayerState.ENDED;
@@ -267,16 +273,16 @@ export default function VideoPlayer({
                 });
                 
                 // Only call state change if it's actually different
-                if (isNowPlaying && !isPlaying) {
-                  onPlayStateChange(true);
-                } else if ((isNowPaused || isEnded) && isPlaying) {
-                  onPlayStateChange(false);
+                if (isNowPlaying && !isPlayingRef.current) {
+                  onPlayStateChangeRef.current(true);
+                } else if ((isNowPaused || isEnded) && isPlayingRef.current) {
+                  onPlayStateChangeRef.current(false);
                 }
                 
                 // Handle video end event
-                if (isEnded && onVideoEnded) {
+                if (isEnded && onVideoEndedRef.current) {
                   if (debug) console.log('🎬 Video ended, calling onVideoEnded');
-                  onVideoEnded();
+                  onVideoEndedRef.current();
                 }
               }
             },
@@ -303,7 +309,7 @@ export default function VideoPlayer({
       if (debug) console.error('YT init error:', error);
       setApiError(true);
     }
-  }, [videoId, playerVars, debug, onPlayStateChange, onVideoEnded]);
+  }, [videoId, debug]);
 
   // Load YouTube API
   useEffect(() => {
