@@ -85,11 +85,9 @@ const CueManager: FC<CueManagerProps> = ({ currentTime, currentBeat, timeMode, t
     <div>
       <CueForm
         currentTime={currentTime}
-        currentBeat={currentBeat}
         onSubmit={handleSubmit}
         editingCue={editingCue}
         onCancel={handleCancel}
-        timeMode={timeMode}
         onPause={handlePause}
       />
       

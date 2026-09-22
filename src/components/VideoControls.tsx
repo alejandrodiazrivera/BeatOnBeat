@@ -1,5 +1,9 @@
 import { FC } from 'react';
+<<<<<<< HEAD
 import { Play, Pause, Square, Rewind, FastForward, Layers, Layers2, Pin, Upload } from 'lucide-react';
+=======
+import {Play,Pause,Square,Rewind,FastForward,FlipHorizontal2,Repeat,Save,X,Upload} from 'lucide-react';
+>>>>>>> youtuber
 
 interface VideoControlsProps {
   onPlay: () => void;
@@ -8,9 +12,15 @@ interface VideoControlsProps {
   onSkipBack: () => void;
   onSkipForward: () => void;
   onSpeedChange: (speed: number) => void;
-  onAddCue: () => void;
-  onToggleOverlay: () => void;
-  overlaysVisible: boolean;
+  onToggleMirror?: () => void;
+  onLoopModeChange?: () => void;
+  onSaveLoop?: () => void;
+  onClearLoop?: () => void;
+  onOpenFilePicker?: () => void;
+  isMirrored?: boolean;
+  loopMode?: 'inactive' | 'activated' | 'active';
+  canSaveLoop?: boolean;
+  canClearLoop?: boolean;
   playbackSpeed?: number;
   onUploadVideo: (event: React.ChangeEvent<HTMLInputElement>) => void;
   uploadButtonId?: string;
@@ -23,15 +33,33 @@ const VideoControls: FC<VideoControlsProps> = ({
   onSkipBack,
   onSkipForward,
   onSpeedChange,
+<<<<<<< HEAD
   onAddCue,
   onToggleOverlay,
   overlaysVisible,
   playbackSpeed = 1,
   onUploadVideo,
   uploadButtonId = 'video-upload-controls',
+=======
+  onToggleMirror = () => {},
+  onLoopModeChange = () => {},
+  onSaveLoop = () => {},
+  onClearLoop = () => {},
+  onOpenFilePicker = () => {},
+  isMirrored = false,
+  loopMode = 'inactive',
+  canSaveLoop = false,
+  canClearLoop = false,
+  playbackSpeed = 1
+>>>>>>> youtuber
 }) => {
-  const handleSpeedChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    onSpeedChange(parseFloat(e.target.value));
+  const speedCycle = [1, 0.75, 0.5];
+  const speedIndex = speedCycle.indexOf(playbackSpeed);
+  const nextSpeed = speedCycle[(speedIndex + 1) % speedCycle.length];
+  const speedLabel = `${playbackSpeed === 0.75 ? '0,75' : playbackSpeed === 0.5 ? '0,5' : '1'}x`;
+
+  const handleSpeedChange = () => {
+    onSpeedChange(nextSpeed);
   };
 
   return (
@@ -95,41 +123,73 @@ const VideoControls: FC<VideoControlsProps> = ({
         <FastForward className="w-5 h-5" />
       </button>
 
-      <select
-        onChange={handleSpeedChange}
-        className="p-2 border-2 border-Borders rounded-lg bg-white text-Text focus:ring-2 focus:ring-InputboxHighlight focus:outline-none"
-        value={playbackSpeed}
-        aria-label="Playback Speed"
-      >
-        {[0.5, 0.75, 1, 1.25, 1.5, 2].map(speed => (
-          <option key={speed} value={speed}>{speed}x</option>
-        ))}
-      </select>
-
       <button
-        onClick={() => {
-          console.log('🔵 Add Cue button clicked');
-          onAddCue();
-        }}
-        className="p-2 bg-Cue hover:bg-CueHover text-white rounded-lg 
-                  transition-colors duration-200 flex items-center justify-center gap-1.5"
-        aria-label="Add Cue Point"
+        onClick={onToggleMirror}
+        className={`p-2 rounded-lg transition-colors duration-200 flex items-center justify-center ${isMirrored ? 'bg-Cue text-white' : 'bg-Ff-Fr text-white hover:bg-Ff-FrHover'}`}
+        aria-label={isMirrored ? 'Show video normally' : 'Mirror video'}
+        aria-pressed={isMirrored}
+        title={isMirrored ? 'Show video normally' : 'Mirror video'}
       >
+<<<<<<< HEAD
         <Pin className="w-4 h-4" />
+=======
+        <FlipHorizontal2 className="w-5 h-5" />
+>>>>>>> youtuber
       </button>
 
       <button
-        onClick={onToggleOverlay}
-        className={`p-2 rounded-lg ml-auto flex items-center justify-center transition-colors duration-200 ${
-          overlaysVisible 
-            ? 'bg-Layers hover:bg-LayersHover text-white' 
-            : 'bg-LayersToggle hover:bg-LayersToggleHover text-Text'
-        }`}
-        aria-label="Toggle Overlays"
-        title={overlaysVisible ? 'Hide Overlays' : 'Show Overlays'}
+        onClick={onOpenFilePicker}
+        className="p-2 rounded-lg bg-Ff-Fr text-white hover:bg-Ff-FrHover transition-colors duration-200 flex items-center justify-center"
+        aria-label="Choose video file"
+        title="Choose video file"
       >
-        {overlaysVisible ? <Layers size={20} /> : <Layers2 size={20} />}
+        <Upload className="w-5 h-5" />
       </button>
+
+      <button
+        onClick={handleSpeedChange}
+        className="w-16 min-w-16 max-w-16 h-10 flex-none p-2 bg-white border-2 border-Borders rounded-lg text-Text hover:bg-gray-100 focus:ring-2 focus:ring-InputboxHighlight focus:outline-none inline-flex items-center justify-center"
+        aria-label={`Playback speed ${speedLabel}. Change speed`}
+        title="Change playback speed"
+      >
+        {speedLabel}
+      </button>
+
+      <button
+        onClick={onLoopModeChange}
+        className={`loop-mode-wrapper w-[110px] min-w-[110px] ${loopMode === 'activated' ? 'loop-mode-wrapper--active' : ''}`}
+        aria-label={`Loop mode: ${loopMode}`}
+        title={loopMode === 'activated' ? 'Finish loop' : loopMode === 'active' ? 'Stop loop' : 'Start loop'}
+      >
+        <span className="loop-mode-button">
+          <Repeat className="mr-1 inline-block h-4 w-4" />
+          {loopMode === 'activated' ? 'Loop out' : loopMode === 'active' ? 'Loop' : 'Loop in'}
+        </span>
+      </button>
+
+      <button
+        onClick={onSaveLoop}
+        disabled={!canSaveLoop}
+        className="inline-flex h-10 items-center justify-center gap-1 rounded-lg bg-Cue px-3 py-2 text-sm font-medium text-white transition-colors duration-200 hover:bg-CueHover disabled:cursor-not-allowed disabled:bg-gray-300"
+        aria-label="Save loop"
+        title="Save loop"
+      >
+        <Save className="h-4 w-4" />
+        Save loop
+      </button>
+
+      {canClearLoop && (
+        <button
+          onClick={onClearLoop}
+          className="inline-flex h-10 items-center justify-center gap-1 rounded-lg border-2 border-Borders bg-white px-2 py-2 text-xs font-medium text-Text transition-colors duration-200 hover:bg-gray-100"
+          aria-label="Clear loop"
+          title="Clear loop"
+        >
+          <X className="h-3.5 w-3.5" />
+          Clear
+        </button>
+      )}
+
     </div>
   );
 };

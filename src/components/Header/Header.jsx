@@ -1,29 +1,66 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 
 const Header = () => {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isHeaderVisible, setIsHeaderVisible] = useState(true);
+  const hideTimeoutRef = useRef(null);
+
+  const resetHideTimer = () => {
+    setIsHeaderVisible(true);
+    if (hideTimeoutRef.current) {
+      clearTimeout(hideTimeoutRef.current);
+    }
+    hideTimeoutRef.current = setTimeout(() => {
+      if (!isMobileMenuOpen) {
+        setIsHeaderVisible(false);
+      }
+    }, 3000);
+  };
 
   useEffect(() => {
     const handleScroll = () => {
       setIsScrolled(window.scrollY > 10);
+      resetHideTimer();
     };
     window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
+    resetHideTimer();
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+      if (hideTimeoutRef.current) {
+        clearTimeout(hideTimeoutRef.current);
+      }
+    };
   }, []);
 
+  useEffect(() => {
+    if (isMobileMenuOpen) {
+      resetHideTimer();
+    }
+  }, [isMobileMenuOpen]);
+
   const toggleMobileMenu = () => {
+    resetHideTimer();
     setIsMobileMenuOpen(!isMobileMenuOpen);
   };
 
   const closeMobileMenu = () => {
+    resetHideTimer();
     setIsMobileMenuOpen(false);
   };
 
   return (
     <>
+<<<<<<< HEAD
       {/*<header className={`fixed w-full z-50 transition-all duration-400 ${isScrolled ? 'bg-white/95 backdrop-blur-sm shadow-lg border-b-2 border-transparent py-3' : 'bg-gradient-to-r from-white to-gray-400 py-5'}`}>*/}
       <header className={`fixed w-full z-50 transition-all duration-400 ${isScrolled ? 'bg-white/95 backdrop-blur-sm shadow-lg border-b-2 border-transparent py-3' : 'bg-transparent py-5'}`}>
+=======
+      <header
+        onMouseEnter={resetHideTimer}
+        onFocus={resetHideTimer}
+        className={`fixed w-full z-50 transition-all duration-500 ${isHeaderVisible ? 'translate-y-0' : '-translate-y-full'} ${isScrolled ? 'bg-white/95 backdrop-blur-sm shadow-lg border-b-2 border-transparent py-3' : 'bg-transparent py-5'}`}
+      >
+>>>>>>> youtuber
         <div className="container mx-auto px-4 flex items-center justify-between">
 
           <div className="flex items-center">
@@ -76,6 +113,18 @@ const Header = () => {
           </button>
         </div>
       </header>
+
+      {!isHeaderVisible && (
+        <button
+          type="button"
+          onClick={resetHideTimer}
+          onMouseEnter={resetHideTimer}
+          className="fixed left-1/2 top-0 z-50 -translate-x-1/2 bg-white/95 px-4 py-1 text-xs font-medium text-black shadow-md"
+          aria-label="Show navigation bar"
+        >
+          Show menu
+        </button>
+      )}
 
       {/* Mobile Navigation Menu */}
       {isMobileMenuOpen && (

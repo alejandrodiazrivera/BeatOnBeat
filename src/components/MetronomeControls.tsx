@@ -1,5 +1,5 @@
 import { FC, useState, useEffect, ChangeEvent } from 'react';
-import { RotateCcw, MousePointerClick, Lock, LockOpen, Volume2, VolumeX, Square } from 'lucide-react';
+import { RotateCcw, MousePointerClick, Volume2, VolumeX, Square, Lock, LockOpen } from 'lucide-react';
 import BeatIndicator from './BeatIndicator';
 
 interface MetronomeControlsProps {
@@ -24,7 +24,15 @@ interface MetronomeControlsProps {
     beatsPerCycle: number;
     strongBeats: number[];
   };
+<<<<<<< HEAD
   getCurrentVideoTime: () => number;
+=======
+  // Auto-sync props
+  isLocked?: boolean;
+  detectedBPM?: number | null;
+  isDetecting?: boolean;
+  onAutoSync?: () => void;
+>>>>>>> youtuber
   className?: string;
 }
 
@@ -45,11 +53,45 @@ const MetronomeControls: FC<MetronomeControlsProps> = ({
   onBpmChange,
   onTimeModeChange,
   onToggleMute,
+<<<<<<< HEAD
   onLockSync,
   getTimeModeConfig,
   getCurrentVideoTime
 }) => {
   const [inputValue, setInputValue] = useState('--');
+=======
+  getTimeModeConfig,
+  // Auto-sync props
+  isLocked = false,
+  detectedBPM = null,
+  isDetecting = false,
+  onAutoSync
+}) => {
+    // Spinner style for lock icon
+    const spinnerStyle: React.CSSProperties = {
+      position: 'absolute',
+      top: '-5%',
+      left: '-5%',
+      transform: 'translate(-50%, -50%)',
+      width: '34px',
+      height: '34px',
+      border: '4px solid #9966cb', // purple
+      borderTop: '3px solid #fff',
+      borderRadius: '50%',
+      animation: 'spin 0.8s linear infinite',
+      zIndex: 1,
+      pointerEvents: 'none',
+    };
+
+    // Add keyframes for spin animation
+    useEffect(() => {
+      const style = document.createElement('style');
+      style.innerHTML = `@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }`;
+      document.head.appendChild(style);
+      return () => { document.head.removeChild(style); };
+    }, []);
+  const [inputValue, setInputValue] = useState(Math.round(bpm).toString());
+>>>>>>> youtuber
 
   // Sync input with BPM changes
   useEffect(() => {
@@ -79,6 +121,7 @@ const MetronomeControls: FC<MetronomeControlsProps> = ({
     }
   };
 
+<<<<<<< HEAD
   // Lock toggle handler
   const handleLockToggle = () => {
     if (isLocked) {
@@ -90,6 +133,9 @@ const MetronomeControls: FC<MetronomeControlsProps> = ({
       onLockSync({ bpm, beat: currentBeat, videoTime: currentVideoTime });
     }
   };
+=======
+
+>>>>>>> youtuber
 
   // Mute toggle handler
   const handleMuteToggle = () => {
@@ -117,6 +163,7 @@ const MetronomeControls: FC<MetronomeControlsProps> = ({
           Beat Tap
           <MousePointerClick className="w-5 h-5" />
         </button>
+<<<<<<< HEAD
         <button
           className="bpm-btn bpm-btn--decrement px-2 py-1 border rounded"
           onClick={handleDecrement}
@@ -198,9 +245,72 @@ const MetronomeControls: FC<MetronomeControlsProps> = ({
               isRunning={isRunning}
               timeMode={timeMode}
               getTimeModeConfig={getTimeModeConfig}
+=======
+
+        {/* BPM Controls - Centered on mobile */}
+        <div className="flex items-center justify-center gap-1 w-full sm:w-auto">
+          <button
+            onClick={handleDecrement}
+            className="bg-Pause hover:bg-Stop text-Metronome hover:text-white w-8 h-8 rounded-full flex items-center justify-center font-bold transition-colors duration-200"
+          >
+            -
+          </button>
+          <div className="relative w-20 mx-1">
+            <input
+              type="text"
+              value={inputValue}
+              onChange={handleBpmInputChange}
+              onBlur={handleBpmInputBlur}
+              onKeyPress={handleKeyPress}
+              className="font-bold w-full text-center border-2 border-InputboxColor rounded-lg py-1 pr-8 pl-2 focus:outline-none focus:ring-2 focus:ring-InputboxHighlight text-InputText"
+>>>>>>> youtuber
             />
           </div>
+<<<<<<< HEAD
           {/* Signature/Start/Stop Buttons */}
+=======
+          <button
+            onClick={handleIncrement}
+            className="bg-Pause hover:bg-Stop text-Metronome hover:text-white w-8 h-8 rounded-full flex items-center justify-center font-bold transition-colors duration-200"
+          >
+            +
+          </button>
+          <button
+            onClick={handleMuteToggle}
+            className={`ml-2 w-8 h-8 rounded-full flex items-center justify-center transition-colors duration-200 border-2 border-Borders ${isMuted ? 'bg-Stop text-white' : 'bg-white text-Metronome hover:bg-Stop hover:text-white'}`}
+            title={isMuted ? 'Unmute metronome' : 'Mute metronome'}
+            aria-label={isMuted ? 'Unmute metronome' : 'Mute metronome'}
+          >
+            {isMuted ? <VolumeX size={20} /> : <Volume2 size={20} />}
+          </button>
+          <div className="relative ml-2 w-8 h-8 flex items-center justify-center">
+            {/* Spinner overlay when detecting and not locked */}
+            {isDetecting && !isLocked && <span style={spinnerStyle} />}
+            <button
+              onClick={onAutoSync}
+              className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors duration-200 border-2 border-Borders ${isLocked ? 'bg-Metronome text-white' : 'bg-white text-Metronome hover:bg-Metronome hover:text-white'}`}
+              title={isLocked ? 'Unlock auto-sync (stop continuous monitoring)' : 'Lock auto-sync with video (start continuous monitoring)'}
+              aria-label={isLocked ? 'Unlock auto-sync' : 'Lock auto-sync with video'}
+            >
+              {isLocked ? <Lock size={20} /> : <LockOpen size={20} />}
+            </button>
+          </div>
+        </div>
+        
+        {/* Beat Indicator */}
+        <div className="w-full sm:w-auto flex justify-center sm:justify-start">
+          <BeatIndicator 
+            currentBeat={currentBeat} 
+            isRunning={isRunning}
+            timeMode={timeMode}
+            getTimeModeConfig={getTimeModeConfig}
+          />
+        </div>
+
+        {/* Auto-Sync Status - Show only when locked */}
+        <div className="flex gap-3 w-full sm:w-auto justify-center sm:justify-start">
+          {/* Time Mode Toggle Button */}
+>>>>>>> youtuber
           <button
             onClick={() => onTimeModeChange(timeMode === '8-beat' ? 'flamenco-12' : '8-beat')}
             className="px-3 py-2 rounded-lg transition-colors duration-200 bg-Signature hover:bg-Metronome text-white text-sm font-medium ml-2"
@@ -210,7 +320,11 @@ const MetronomeControls: FC<MetronomeControlsProps> = ({
           </button>
           <button
             onClick={onStart}
+<<<<<<< HEAD
             className="px-4 py-2 rounded-lg transition-colors duration-200 bg-Stop hover:bg-Pause text-white flex items-center justify-center font-medium ml-2"
+=======
+            className="px-4 py-2 rounded-lg transition-colors duration-200 bg-Stop hover:bg-Pause text-white flex items-center justify-center font-medium start-metronome-btn"
+>>>>>>> youtuber
             title="Start metronome"
           >
             <RotateCcw size={20} />

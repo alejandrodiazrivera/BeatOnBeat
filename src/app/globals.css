@@ -26,6 +26,80 @@
   transition: background-color 0.2s, border-color 0.2s, box-shadow 0.2s;
 }
 
+.mirror-video {
+  transform: scaleX(-1);
+}
+
+.loop-mode-wrapper {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  padding: 2px;
+  border: 0;
+  border-radius: 8px;
+  background: #2a2a2a;
+}
+
+.loop-mode-wrapper::before {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  z-index: -1;
+  width: 220%;
+  aspect-ratio: 1;
+  content: '';
+  background: conic-gradient(transparent 0deg 300deg, var(--loop-accent) 300deg 360deg);
+  opacity: 0;
+  transform: translate(-50%, -50%);
+  transition: opacity 0.4s ease;
+}
+
+.loop-mode-wrapper--activated {
+  --loop-accent: #9966cb;
+  background: var(--loop-accent);
+  box-shadow: 0 0 18px -3px var(--loop-accent);
+}
+
+.loop-mode-wrapper--active {
+  --loop-accent: #9966cb;
+}
+
+.loop-mode-wrapper--active::before {
+  opacity: 1;
+  animation: loop-mode-spin 7s linear infinite;
+}
+
+.loop-mode-button {
+  position: relative;
+  z-index: 1;
+  display: block;
+  padding: 0.5rem 0.75rem;
+  border-radius: 6px;
+  background: #1a1a1a;
+  color: #f5f5f5;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.loop-mode-button:hover {
+  background: #292929;
+}
+
+.loop-mode-button:active {
+  background: #111111;
+}
+
+.loop-mode-wrapper:focus-visible {
+  outline: 2px solid #9966cb;
+  outline-offset: 4px;
+}
+
+@keyframes loop-mode-spin {
+  to {
+    transform: translate(-50%, -50%) rotate(360deg);
+  }
+}
+
 /* Focus styles with brand colors */
 input:focus, textarea:focus, select:focus {
   @apply outline-none ring-2 border-2;

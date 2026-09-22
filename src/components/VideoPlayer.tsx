@@ -1,13 +1,32 @@
+<<<<<<< HEAD
 import { useEffect, useRef, useState, memo, useCallback } from 'react';
 
 // Types
+=======
+import Image from 'next/image';
+import { useEffect, useRef, useState, memo, useCallback, type RefObject } from 'react';
+
+// Types
+interface YTPlayer {
+  playVideo: () => void;
+  pauseVideo: () => void;
+  mute: () => void;
+  unMute: () => void;
+  seekTo: (seconds: number, allowSeekAhead: boolean) => void;
+  setPlaybackRate: (suggestedRate: number) => void;
+  destroy: () => void;
+  getCurrentTime: () => number;
+}
+
+>>>>>>> youtuber
 interface VideoPlayerProps {
   currentTime: number;
-  currentBeat: number;
   currentCue?: CuePoint | null;
   overlaysVisible?: boolean;
-  isMetronomeRunning?: boolean;
   isPlaying: boolean;
+  isMirrored?: boolean;
+  loop?: boolean;
+  muted?: boolean;
   playbackSpeed?: number;
   videoFile?: File | null;
   onTimeUpdate?: (time: number) => void;
@@ -19,6 +38,7 @@ interface VideoPlayerProps {
   aspectRatio?: number;
   fullHeight?: boolean;
   allowUploads?: boolean;
+  fileInputRef?: RefObject<HTMLInputElement | null>;
 }
 
 interface CuePoint {
@@ -27,6 +47,35 @@ interface CuePoint {
   note?: string;
 }
 
+<<<<<<< HEAD
+=======
+declare global {
+  interface Window {
+    YT: {
+      Player: new (element: string | HTMLElement, options: YTPlayerOptions) => YTPlayer;
+      PlayerState: {
+        PLAYING: number;
+        PAUSED: number;
+        ENDED: number;
+      };
+    };
+    onYouTubeIframeAPIReady: (() => void) | null;
+  }
+}
+
+interface YTPlayerOptions {
+  height: string;
+  width: string;
+  videoId: string;
+  playerVars: Record<string, number | string>;
+  events: {
+    onReady: () => void;
+    onStateChange: (event: { data: number }) => void;
+    onError: () => void;
+  };
+}
+
+>>>>>>> youtuber
 // Overlay Components (memoized)
 const TimeOverlay = memo(({ currentTime }: { currentTime: number }) => {
   const formatTimeDisplay = (time: number) => {
@@ -48,19 +97,6 @@ const TimeOverlay = memo(({ currentTime }: { currentTime: number }) => {
   );
 });
 
-const BeatOverlay = memo(({ currentBeat, isMetronomeRunning }: { 
-  currentBeat: number; 
-  isMetronomeRunning?: boolean 
-}) => (
-  <div className={`
-    absolute top-2 right-2 flex items-center justify-center
-    w-6 h-6 md:w-8 md:h-8 rounded-full text-white font-bold text-xs md:text-sm
-    ${isMetronomeRunning ? 'animate-pulse bg-red-600' : 'bg-gray-400'}
-  `}>
-    {currentBeat}
-  </div>
-));
-
 const CueOverlay = memo(({ cue }: { cue: CuePoint }) => (
   <div className="absolute bottom-4 left-0 right-0 mx-auto bg-black/20 text-white p-2 md:p-4 rounded max-w-[90%] text-center">
     <h3 className="font-bold text-sm md:text-lg">{cue.title}</h3>
@@ -71,11 +107,12 @@ const CueOverlay = memo(({ cue }: { cue: CuePoint }) => (
 // Main Component
 export default function VideoPlayer({
   currentTime,
-  currentBeat = 1,
   currentCue,
   overlaysVisible = true,
-  isMetronomeRunning = false,
   isPlaying,
+  isMirrored = false,
+  loop = false,
+  muted = false,
   playbackSpeed = 1,
   videoFile,
   onTimeUpdate,
@@ -86,14 +123,28 @@ export default function VideoPlayer({
   debug = false,
   aspectRatio = 16/9,
   fullHeight = false,
-  allowUploads = true
+  allowUploads = true,
+  fileInputRef
 }: VideoPlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
+<<<<<<< HEAD
 
+=======
+  const containerRef = useRef<HTMLDivElement>(null);
+  const pendingSeekRef = useRef<number | null>(null);
+  
+  // State
+  const [playerReady, setPlayerReady] = useState(false);
+  const [apiError, setApiError] = useState(false);
+>>>>>>> youtuber
   const [videoSrc, setVideoSrc] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [userInteracted, setUserInteracted] = useState(false);
+  const isPlayingRef = useRef(isPlaying);
+  const onPlayStateChangeRef = useRef(onPlayStateChange);
+  const onVideoEndedRef = useRef(onVideoEnded);
 
+<<<<<<< HEAD
   // Handle external video file prop (from upload button)
   useEffect(() => {
     if (videoFile && videoFile.type.startsWith('video/')) {
@@ -102,6 +153,31 @@ export default function VideoPlayer({
         setVideoSrc(URL.createObjectURL(videoFile));
         setIsUploading(false);
       }, 300);
+=======
+  useEffect(() => {
+    isPlayingRef.current = isPlaying;
+    onPlayStateChangeRef.current = onPlayStateChange;
+    onVideoEndedRef.current = onVideoEnded;
+  }, [isPlaying, onPlayStateChange, onVideoEnded]);
+
+  const playerVars = {
+    autoplay: 0,
+    controls: 0,
+    disablekb: 1,
+    rel: 0,
+    modestbranding: 1
+  };
+
+  // Cleanup YouTube player
+  const cleanupPlayer = useCallback(() => {
+    if (playerRef.current) {
+      try {
+        playerRef.current.destroy();
+      } catch (error) {
+        if (debug) console.error('Cleanup error:', error);
+      }
+      playerRef.current = null;
+>>>>>>> youtuber
     }
   }, [videoFile]);
 
@@ -116,11 +192,219 @@ export default function VideoPlayer({
         onVideoFileUploaded?.(file);
       }, 300);
     }
+<<<<<<< HEAD
   }, [onVideoFileUploaded]);
 
   // Play/pause control
   useEffect(() => {
     if (videoRef.current) {
+=======
+  }, [onVideoFileUploaded, cleanupPlayer]);
+
+  // Initialize YouTube player
+  const initializePlayer = useCallback(() => {
+    if (!containerRef.current || !videoId) return;
+
+    try {
+      // Suppress YouTube API cross-origin warnings in development
+      const originalConsoleWarn = console.warn;
+      const originalConsoleError = console.error;
+      
+  const suppressYouTubeWarnings = (message: unknown, ...args: unknown[]) => {
+        const messageStr = String(message);
+        // Suppress common YouTube development warnings
+        if ((messageStr.includes('postMessage') && messageStr.includes('youtube.com')) ||
+            (messageStr.includes('target origin') && messageStr.includes('youtube.com')) ||
+            (messageStr.includes('localhost') && messageStr.includes('youtube.com'))) {
+          return; // Suppress YouTube cross-origin warnings in development
+        }
+        originalConsoleWarn(message, ...args);
+      };
+      
+  const suppressYouTubeErrors = (message: unknown, ...args: unknown[]) => {
+        const messageStr = String(message);
+        // Suppress common YouTube development errors
+        if ((messageStr.includes('postMessage') && messageStr.includes('youtube.com')) ||
+            (messageStr.includes('target origin') && messageStr.includes('youtube.com')) ||
+            (messageStr.includes('DOMWindow') && messageStr.includes('youtube.com'))) {
+          return; // Suppress YouTube cross-origin errors in development
+        }
+        originalConsoleError(message, ...args);
+      };
+      
+      // Temporarily override console methods
+      console.warn = suppressYouTubeWarnings;
+      console.error = suppressYouTubeErrors;
+      
+      // Add a small delay to ensure the container is ready
+      setTimeout(() => {
+        if (!containerRef.current) return;
+        
+        try {
+          playerRef.current = new window.YT.Player(containerRef.current, {
+            height: '100%',
+            width: '100%',
+            videoId,
+            playerVars,
+            events: {
+              onReady: () => {
+                // Restore original console methods
+                console.warn = originalConsoleWarn;
+                console.error = originalConsoleError;
+                
+                if (debug) console.log('YouTube player onReady called');
+                
+                // Multiple verification attempts for player readiness
+                const verifyPlayer = (attempt = 1) => {
+                  if (!playerRef.current) {
+                    if (debug) console.warn('Player ref lost during verification');
+                    return;
+                  }
+                  
+                  if (typeof playerRef.current.playVideo === 'function' && 
+                      typeof playerRef.current.getCurrentTime === 'function') {
+                    setPlayerReady(true);
+                    if (debug) console.log(`YouTube player ready and verified (attempt ${attempt})`);
+                  } else {
+                    if (attempt < 10) { // Try up to 10 times
+                      if (debug) console.log(`Player methods not ready, attempt ${attempt}/10`);
+                      setTimeout(() => verifyPlayer(attempt + 1), 100 * attempt); // Increasing delay
+                    } else {
+                      if (debug) console.error('YouTube player methods never became available after 10 attempts');
+                      setApiError(true);
+                    }
+                  }
+                };
+                
+                // Start verification immediately, then with delay
+                verifyPlayer();
+              },
+            onStateChange: (event) => {
+              if (debug) console.log('YouTube Player state:', event.data);
+              
+              // Sync YouTube player state with React state
+              if (onPlayStateChangeRef.current) {
+                const isNowPlaying = event.data === window.YT.PlayerState.PLAYING;
+                const isNowPaused = event.data === window.YT.PlayerState.PAUSED;
+                const isEnded = event.data === window.YT.PlayerState.ENDED;
+                
+                if (debug) console.log('YouTube state change:', { 
+                  isNowPlaying, 
+                  isNowPaused, 
+                  isEnded,
+                  eventData: event.data 
+                });
+                
+                // Only call state change if it's actually different
+                if (isNowPlaying && !isPlayingRef.current) {
+                  onPlayStateChangeRef.current(true);
+                } else if ((isNowPaused || isEnded) && isPlayingRef.current) {
+                  onPlayStateChangeRef.current(false);
+                }
+                
+                // Handle video end event
+                if (isEnded && onVideoEndedRef.current) {
+                  if (debug) console.log('🎬 Video ended, calling onVideoEnded');
+                  onVideoEndedRef.current();
+                }
+              }
+            },
+            onError: () => {
+              // Restore original console methods in case of error
+              console.warn = originalConsoleWarn;
+              console.error = originalConsoleError;
+              
+              if (debug) console.error('YouTube player error');
+              setApiError(true);
+            }
+          }
+        });
+        } catch (playerError) {
+          // Restore original console methods in case of player creation error
+          console.warn = originalConsoleWarn;
+          console.error = originalConsoleError;
+          
+          if (debug) console.error('YT player creation error:', playerError);
+          setApiError(true);
+        }
+      }, 100);
+    } catch (error) {
+      if (debug) console.error('YT init error:', error);
+      setApiError(true);
+    }
+  }, [videoId, debug]);
+
+  // Load YouTube API
+  useEffect(() => {
+    if (!videoId) return;
+
+    if (window.YT) {
+      initializePlayer();
+      return;
+    }
+
+    const tag = document.createElement('script');
+    tag.src = "https://www.youtube.com/iframe_api";
+    tag.async = true;
+    tag.id = 'youtube-iframe-script';
+
+    window.onYouTubeIframeAPIReady = initializePlayer;
+    document.body.appendChild(tag);
+
+    return () => {
+      cleanupPlayer();
+      document.getElementById('youtube-iframe-script')?.remove();
+      window.onYouTubeIframeAPIReady = null;
+    };
+  }, [videoId, initializePlayer, cleanupPlayer]);
+
+  // Play/pause control
+  useEffect(() => {
+    console.log('🎞️ VideoPlayer play/pause effect triggered:', {
+      isPlaying,
+      videoId,
+      playerReady,
+      hasPlayerRef: !!playerRef.current,
+      hasVideoRef: !!videoRef.current
+    });
+
+    if (videoId) {
+      if (!playerRef.current) {
+        if (debug) console.log('⚠️ YouTube player ref not available yet');
+        return;
+      }
+      
+      // More aggressive safety check for YouTube player methods
+      const attemptControl = (retries = 3) => {
+        try {
+          if (typeof playerRef.current?.playVideo === 'function' && 
+              typeof playerRef.current?.pauseVideo === 'function') {
+            if (debug) console.log(`🎞️ YouTube: ${isPlaying ? 'Playing' : 'Pausing'} video`);
+            if (isPlaying) {
+              playerRef.current.playVideo();
+            } else {
+              playerRef.current.pauseVideo();
+            }
+          } else if (retries > 0) {
+            if (debug) console.warn(`YouTube player methods not available, retrying... (${retries} attempts left)`);
+            setTimeout(() => attemptControl(retries - 1), 100);
+          } else {
+            if (debug) console.error('YouTube player methods unavailable after retries');
+          }
+        } catch (error) {
+          if (debug) console.error('YouTube player control error:', error);
+          if (retries > 0) {
+            setTimeout(() => attemptControl(retries - 1), 100);
+          } else {
+            setApiError(true);
+          }
+        }
+      };
+      
+      attemptControl();
+    } else if (videoRef.current) {
+      console.log(`🎞️ Local video: ${isPlaying ? 'Playing' : 'Pausing'} video`);
+>>>>>>> youtuber
       if (isPlaying) {
         videoRef.current.play().catch(e => {
           if (debug) console.error('Play error:', e);
@@ -133,9 +417,44 @@ export default function VideoPlayer({
 
   // Seek control
   useEffect(() => {
+<<<<<<< HEAD
     if (videoRef.current) {
+=======
+    pendingSeekRef.current = currentTime;
+
+    if (videoId) {
+      if (!playerRef.current) return;
+      
+      const attemptSeek = (retries = 3) => {
+        try {
+          if (typeof playerRef.current?.getCurrentTime === 'function' && 
+              typeof playerRef.current?.seekTo === 'function') {
+            const currentPlayerTime = playerRef.current.getCurrentTime();
+            if (Math.abs(currentPlayerTime - currentTime) > 0.5) {
+              if (debug) console.log(`🎯 Seeking YouTube video to ${currentTime}s`);
+              playerRef.current.seekTo(currentTime, true);
+            } else {
+              pendingSeekRef.current = null;
+            }
+          } else if (retries > 0) {
+            if (debug && retries === 3) console.log('YouTube seek methods not available, retrying...');
+            setTimeout(() => attemptSeek(retries - 1), 50);
+          }
+        } catch (error) {
+          if (debug) console.error('YouTube player seek error:', error);
+          if (retries > 0) {
+            setTimeout(() => attemptSeek(retries - 1), 50);
+          }
+        }
+      };
+      
+      attemptSeek();
+    } else if (videoRef.current) {
+>>>>>>> youtuber
       if (Math.abs(videoRef.current.currentTime - currentTime) > 0.5) {
         videoRef.current.currentTime = currentTime;
+      } else {
+        pendingSeekRef.current = null;
       }
     }
   }, [currentTime, debug]);
@@ -147,20 +466,98 @@ export default function VideoPlayer({
     }
   }, [playbackSpeed, debug]);
 
-  // Time update sync
+  useEffect(() => {
+    if (videoId && playerRef.current) {
+      if (muted) {
+        playerRef.current.mute?.();
+      } else {
+        playerRef.current.unMute?.();
+      }
+    } else if (videoRef.current) {
+      videoRef.current.muted = muted;
+    }
+  }, [muted, videoId, playerReady]);
+
+  // Time update sync - handles both YouTube and local videos
   useEffect(() => {
     if (!onTimeUpdate) return;
     const syncTime = () => {
       try {
+<<<<<<< HEAD
         const time = videoRef.current?.currentTime || 0;
         onTimeUpdate(time);
+=======
+        let time = 0;
+        let hasValidSource = false;
+        
+        if (videoId && playerRef.current) {
+          // YouTube video - get time from YouTube Player API
+          // Check if player is ready and has the required method
+          if (playerReady && typeof playerRef.current.getCurrentTime === 'function') {
+            time = playerRef.current.getCurrentTime();
+            hasValidSource = true;
+            if (debug) console.log('🎞️ YouTube time:', time);
+          } else {
+            // Player might not be ready yet, but still try to get time
+            try {
+              if (typeof playerRef.current.getCurrentTime === 'function') {
+                time = playerRef.current.getCurrentTime();
+                hasValidSource = true;
+                if (debug) console.log('🎞️ YouTube time (player not marked ready):', time);
+              }
+            } catch (e) {
+              // Silently ignore - player not ready yet
+              if (debug) console.log('🎞️ YouTube player not ready for time sync');
+            }
+          }
+        } else if (videoRef.current && !videoRef.current.paused) {
+          // Local video - get time from HTML video element (only if not paused)
+          time = videoRef.current.currentTime;
+          hasValidSource = true;
+          if (debug) console.log('🎞️ Local video time:', time);
+        } else if (videoRef.current) {
+          // Even if paused, still sync the time
+          time = videoRef.current.currentTime;
+          hasValidSource = true;
+          if (debug) console.log('🎞️ Local video time (paused):', time);
+        }
+
+        if (
+          pendingSeekRef.current !== null &&
+          hasValidSource &&
+          Math.abs(time - pendingSeekRef.current) > 0.5
+        ) {
+          return;
+        }
+
+        if (pendingSeekRef.current !== null) {
+          pendingSeekRef.current = null;
+        }
+        
+        // Update time if we have a valid source
+        if (hasValidSource) {
+          onTimeUpdate(time);
+        }
+>>>>>>> youtuber
       } catch (error) {
         if (debug) console.error('Time sync error:', error);
       }
     };
+<<<<<<< HEAD
     const interval = setInterval(syncTime, 200);
     return () => clearInterval(interval);
   }, [onTimeUpdate, debug]);
+=======
+
+    // Sync time immediately
+    syncTime();
+    
+    // Use consistent interval for both video types
+    const updateInterval = 100; // 100ms for smoother updates
+    const interval = setInterval(syncTime, updateInterval);
+    return () => clearInterval(interval);
+  }, [onTimeUpdate, videoId, debug, playerReady, videoSrc]);
+>>>>>>> youtuber
 
   // Cleanup local video URL
   useEffect(() => {
@@ -169,28 +566,29 @@ export default function VideoPlayer({
     };
   }, [videoSrc]);
 
+  // Keep YouTube and local video sources mutually exclusive.
+  useEffect(() => {
+    if (videoId && videoSrc) {
+      URL.revokeObjectURL(videoSrc);
+      setVideoSrc(null);
+    }
+  }, [videoId, videoSrc]);
+
   // Render
   return (
     <div 
-      className={`relative w-full bg-black ${fullHeight ? 'h-screen' : ''}`}
+      className={`relative w-full bg-black rounded-xl shadow-lg border-2 border-Borders ${fullHeight ? 'h-screen' : ''}`}
       style={!fullHeight ? { paddingBottom: `${100/aspectRatio}%` } : {}}
     >
       {/* Upload Area (when no video loaded) */}
       {allowUploads && !videoSrc && (
         <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 p-4">
-          <label className={`
+          <label htmlFor="video-file-input" className={`
             flex flex-col items-center justify-center 
             w-full h-full border-2 border-dashed rounded-lg 
             hover:bg-gray-900/50 transition-colors cursor-pointer
             ${isUploading ? 'border-blue-500' : 'border-gray-600'}
           `}>
-            <input 
-              type="file" 
-              accept="video/*" 
-              onChange={handleFileUpload}
-              className="hidden" 
-              disabled={isUploading}
-            />
             <div className="text-center p-6">
               {isUploading ? (
                 <>
@@ -202,7 +600,7 @@ export default function VideoPlayer({
                   <svg className="w-12 h-12 mx-auto text-gray-400 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
                   </svg>
-                  <p className="text-gray-300 font-medium">Drag & drop a video file or click to browse</p>
+                  <p className="text-gray-300 font-medium">Drag &amp; drop a video file or click to browse</p>
                   <p className="text-gray-500 text-sm mt-1">Supports MP4, WebM, MOV</p>
                 </>
               )}
@@ -211,6 +609,46 @@ export default function VideoPlayer({
         </div>
       )}
 
+<<<<<<< HEAD
+=======
+      {allowUploads && (
+        <>
+          <input
+            ref={element => {
+              if (fileInputRef) {
+                fileInputRef.current = element;
+              }
+            }}
+            id="video-file-input"
+            type="file"
+            accept="video/*"
+            onChange={handleFileUpload}
+            className="hidden"
+            disabled={isUploading}
+          />
+        </>
+      )}
+
+      {/* YouTube Player */}
+      {videoId && !videoSrc && (
+        <div 
+          ref={containerRef} 
+          className={`absolute inset-0 ${isMirrored ? 'mirror-video' : ''}`}
+        >
+          {!playerReady && (
+            <Image
+              src={`https://img.youtube.com/vi/${videoId}/mqdefault.jpg`}
+              alt="Video thumbnail"
+              fill
+              className="absolute inset-0 w-full h-full object-cover opacity-50"
+              sizes="(max-width: 768px) 100vw, (max-width: 1200px) 80vw, 60vw"
+              priority
+            />
+          )}
+        </div>
+      )}
+
+>>>>>>> youtuber
       {/* Local Video Player */}
       {videoSrc && (
         <video
@@ -221,9 +659,10 @@ export default function VideoPlayer({
             }
           }}
           src={videoSrc}
-          className="absolute inset-0 w-full h-full object-contain bg-black cursor-pointer"
+          className={`absolute inset-0 w-full h-full object-contain bg-black cursor-pointer ${isMirrored ? 'mirror-video' : ''}`}
           playsInline
-          muted={!userInteracted}
+          loop={loop}
+          muted={muted}
           onLoadedData={() => {
             if (videoRef.current) {
               onVideoElementReady?.(videoRef.current);
@@ -245,7 +684,7 @@ export default function VideoPlayer({
       )}
 
       {/* Unmute indicator for local videos */}
-      {videoSrc && !userInteracted && (
+      {videoSrc && muted && (
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
           
         </div>
@@ -257,9 +696,6 @@ export default function VideoPlayer({
       {overlaysVisible && videoSrc && (
         <div className="absolute inset-0 pointer-events-none">
           <TimeOverlay currentTime={currentTime} />
-          {isMetronomeRunning && (
-            <BeatOverlay currentBeat={currentBeat} isMetronomeRunning={isMetronomeRunning} />
-          )}
           {currentCue && <CueOverlay cue={currentCue} />}
         </div>
       )}
@@ -269,5 +705,4 @@ export default function VideoPlayer({
 
 // Display names for React DevTools
 TimeOverlay.displayName = 'TimeOverlay';
-BeatOverlay.displayName = 'BeatOverlay';
 CueOverlay.displayName = 'CueOverlay';

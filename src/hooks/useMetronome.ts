@@ -1,5 +1,6 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 
+<<<<<<< HEAD
 declare global {
   interface Window {
     webkitAudioContext?: typeof AudioContext;
@@ -15,39 +16,46 @@ export const useMetronome = () => {
   const isLockedRef = useRef(false);
 
   const [bpm, setBpm] = useState<number | null>(null);
+=======
+export const useMetronome = (initialBpm = 100, beatsPerCycle = 8) => {
+  const [bpm, setBpm] = useState<number>(initialBpm);
+>>>>>>> youtuber
   const [isRunning, setIsRunning] = useState<boolean>(false);
   const [currentBeat, setCurrentBeat] = useState<number>(1);
-  const [timeMode, setTimeMode] = useState<TimeMode>('8-beat');
   const [isMuted, setIsMuted] = useState<boolean>(false);
+  const [timeMode, setTimeMode] = useState<'8-beat' | 'flamenco-12'>('8-beat');
   const timerRef = useRef<NodeJS.Timeout | null>(null);
-  const tapTimesRef = useRef<number[]>([]);
-  const startTimeRef = useRef<number>(0); // Track when metronome started
-  
   const audioContextRef = useRef<AudioContext | null>(null);
-  const clickSourcesRef = useRef<AudioNodeRef[]>([]);
+  const clickSourcesRef = useRef<OscillatorNode[]>([]);
+  const tapTimesRef = useRef<number[]>([]);
 
-  // Time mode configurations
-  const getTimeModeConfig = (mode: TimeMode) => {
-    switch (mode) {
-      case '8-beat':
-        return {
-          beatsPerCycle: 8,
-          strongBeats: [1, 5] // Start of each 4/4 measure
-        };
+  // Time mode configuration
+  const getTimeModeConfig = useCallback(() => {
+    switch (timeMode) {
       case 'flamenco-12':
-        return {
-          beatsPerCycle: 12,
-          strongBeats: [3, 6, 8, 10, 12] // Authentic flamenco accents
+        return { 
+          beatsPerCycle: 12, 
+          strongBeats: [1, 3, 6, 8, 10],
+          name: 'Flamenco (12-beat)'
         };
+      case '8-beat':
       default:
-        return {
-          beatsPerCycle: 8,
-          strongBeats: [1, 5]
+        return { 
+          beatsPerCycle: 8, 
+          strongBeats: [4, 8],
+          name: '8-Beat'
         };
     }
-  };
+  }, [timeMode]);
+
+  // Get current beats per cycle based on time mode
+  const getCurrentBeatsPerCycle = useCallback(() => {
+    const config = getTimeModeConfig();
+    return config.beatsPerCycle;
+  }, [getTimeModeConfig]);
 
   useEffect(() => {
+<<<<<<< HEAD
     const initAudio = async () => {
       try {
         audioContextRef.current = new (window.AudioContext || window.webkitAudioContext)();
@@ -84,6 +92,9 @@ export const useMetronome = () => {
     window.addEventListener('touchstart', handleFirstInteraction);
     window.addEventListener('keydown', handleFirstInteraction);
 
+=======
+    audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+>>>>>>> youtuber
     return () => {
       // Remove all event listeners
       window.removeEventListener('click', handleFirstInteraction);
@@ -105,6 +116,7 @@ export const useMetronome = () => {
     };
   }, []);
 
+<<<<<<< HEAD
   const playClick = useCallback(async (beat: number) => {
     if (!audioContextRef.current || isMuted) return;
     
@@ -119,51 +131,39 @@ export const useMetronome = () => {
     }
     
     const config = getTimeModeConfig(timeMode);
+=======
+  // Play click, accent beats based on time mode
+  const playClick = useCallback((beat: number) => {
+    if (!audioContextRef.current || isMuted) return;
+>>>>>>> youtuber
     const oscillator = audioContextRef.current.createOscillator();
     const gainNode = audioContextRef.current.createGain();
+    oscillator.type = 'square';
     
-    oscillator.type = 'sine';
+    const config = getTimeModeConfig();
+    const isStrongBeat = config.strongBeats.includes(beat);
     
-    if (timeMode === 'flamenco-12') {
-      // Authentic flamenco sound pattern
-      if (config.strongBeats.includes(beat)) {
-        // Accented beats (3, 6, 8, 10, 12) - deeper, more resonant
-        oscillator.frequency.value = 400; // Lower frequency for flamenco accents
-        gainNode.gain.setValueAtTime(0.8, audioContextRef.current.currentTime);
-      } else {
-        // Non-accented beats - lighter
-        oscillator.frequency.value = 600;
-        gainNode.gain.setValueAtTime(0.4, audioContextRef.current.currentTime);
-      }
+    if (isStrongBeat) {
+      oscillator.frequency.value = 2000;
+      gainNode.gain.setValueAtTime(1.0, audioContextRef.current.currentTime);
     } else {
-      // Original 8-beat pattern
-      oscillator.frequency.value = config.strongBeats.includes(beat) ? 800 : 600;
-      gainNode.gain.setValueAtTime(config.strongBeats.includes(beat) ? 0.7 : 0.5, audioContextRef.current.currentTime);
+      oscillator.frequency.value = 1500;
+      gainNode.gain.setValueAtTime(0.7, audioContextRef.current.currentTime);
     }
     
     const now = audioContextRef.current.currentTime;
-    const duration = config.strongBeats.includes(beat) ? 0.2 : 0.1;
+    const duration = 0.05;
     gainNode.gain.exponentialRampToValueAtTime(0.001, now + duration);
-    
     oscillator.connect(gainNode);
     gainNode.connect(audioContextRef.current.destination);
-    
     oscillator.start();
     oscillator.stop(now + duration);
-    
     clickSourcesRef.current.push(oscillator);
-    
     oscillator.onended = () => {
-      clickSourcesRef.current = clickSourcesRef.current.filter(
-        s => s !== oscillator
-      );
+      clickSourcesRef.current = clickSourcesRef.current.filter(s => s !== oscillator);
       gainNode.disconnect();
     };
-  }, [timeMode, isMuted]);
-
-  const toggleMute = useCallback(() => {
-    setIsMuted(prev => !prev);
-  }, []);
+  }, [isMuted, getTimeModeConfig]);
 
   // Call this when lock state changes in parent
   const setLocked = useCallback((locked: boolean) => {
@@ -172,11 +172,11 @@ export const useMetronome = () => {
   }, []);
 
   const start = useCallback(() => {
-    // Prevent multiple timers - always clear existing timer first
     if (timerRef.current) {
       clearInterval(timerRef.current);
       timerRef.current = null;
     }
+<<<<<<< HEAD
     // If BPM is unknown, set to 100 before starting
     if (bpm === null) {
       setBpm(100);
@@ -213,17 +213,29 @@ export const useMetronome = () => {
     }
     playClick(startBeat);
     const interval = 60000 / (bpm === null ? 100 : bpm);
+=======
+    setIsRunning(true);
+    setCurrentBeat(1);
+    playClick(1);
+    
+    const beatsInCycle = getCurrentBeatsPerCycle();
+    
+>>>>>>> youtuber
     timerRef.current = setInterval(() => {
       setCurrentBeat(prev => {
-        const nextBeat = prev === config.beatsPerCycle ? 1 : prev + 1;
+        const nextBeat = prev === beatsInCycle ? 1 : prev + 1;
         playClick(nextBeat);
         return nextBeat;
       });
+<<<<<<< HEAD
     }, interval);
   }, [bpm, isRunning, timeMode, currentBeat]);
+=======
+    }, 60000 / bpm);
+  }, [bpm, playClick, getCurrentBeatsPerCycle]);
+>>>>>>> youtuber
 
   const stop = useCallback(() => {
-    // Always clear timer regardless of isRunning state to prevent orphaned timers
     if (timerRef.current) {
       clearInterval(timerRef.current);
       timerRef.current = null;
@@ -231,11 +243,11 @@ export const useMetronome = () => {
     setIsRunning(false);
   }, []);
 
-  // Restart timer when playClick changes while running (e.g., when mute state changes)
-  // This maintains beat synchronization by calculating the proper timing offset
+  // Update BPM while running
   useEffect(() => {
     if (isRunning && timerRef.current) {
       clearInterval(timerRef.current);
+<<<<<<< HEAD
       timerRef.current = null;
       const config = getTimeModeConfig(timeMode);
       const beatDuration = 60000 / (bpm === null ? 100 : bpm);
@@ -273,42 +285,34 @@ export const useMetronome = () => {
       return () => {
         clearTimeout(timeoutId);
       };
+=======
+      const beatsInCycle = getCurrentBeatsPerCycle();
+      
+      timerRef.current = setInterval(() => {
+        setCurrentBeat(prev => {
+          const nextBeat = prev === beatsInCycle ? 1 : prev + 1;
+          playClick(nextBeat);
+          return nextBeat;
+        });
+      }, 60000 / bpm);
+>>>>>>> youtuber
     }
-  }, [playClick, isRunning, bpm, timeMode]);
+  }, [bpm, isRunning, playClick, getCurrentBeatsPerCycle]);
 
-  // Cleanup effect to prevent orphaned timers
+  // Reset beat when time mode changes
   useEffect(() => {
-    return () => {
-      if (timerRef.current) {
-        clearInterval(timerRef.current);
-        timerRef.current = null;
-      }
-    };
-  }, []);
+    if (isRunning) {
+      setCurrentBeat(1);
+    }
+  }, [timeMode, isRunning]);
 
   const setBpmPrecise = useCallback((newBpm: number | string) => {
     const numericBpm = typeof newBpm === 'string' ? parseFloat(newBpm) : newBpm;
     if (isNaN(numericBpm)) return;
-    
-    const validatedBpm = parseFloat(Math.max(40, Math.min(300, numericBpm)).toFixed(2));
-    setBpm(validatedBpm);
-    
-    if (isRunning) {
-      if (timerRef.current) {
-        clearInterval(timerRef.current);
-        const interval = 60000 / validatedBpm;
-        const config = getTimeModeConfig(timeMode);
-        timerRef.current = setInterval(() => {
-          setCurrentBeat(prev => {
-            const nextBeat = prev === config.beatsPerCycle ? 1 : prev + 1;
-            playClick(nextBeat);
-            return nextBeat;
-          });
-        }, interval);
-      }
-    }
-  }, [isRunning, playClick, timeMode]);
+    setBpm(Math.max(40, Math.min(300, numericBpm)));
+  }, []);
 
+<<<<<<< HEAD
   const adjustBpm = useCallback((amount: number) => {
   setBpmPrecise((bpm === null ? 100 : bpm) + amount);
   }, [bpm, setBpmPrecise]);
@@ -341,10 +345,28 @@ export const useMetronome = () => {
 
     // Normal tap tempo logic (unlocked)
     if (tapTimesRef.current.length > 1) {
+=======
+  const adjustBpm = useCallback((delta: number) => {
+    setBpm(prev => Math.max(40, Math.min(300, prev + delta)));
+  }, []);
+
+  const tapTempo = useCallback(() => {
+    const now = Date.now();
+    tapTimesRef.current.push(now);
+    
+    // Keep only the last 4 taps
+    if (tapTimesRef.current.length > 4) {
+      tapTimesRef.current = tapTimesRef.current.slice(-4);
+    }
+    
+    // Need at least 2 taps to calculate BPM
+    if (tapTimesRef.current.length >= 2) {
+>>>>>>> youtuber
       const intervals = [];
       for (let i = 1; i < tapTimesRef.current.length; i++) {
         intervals.push(tapTimesRef.current[i] - tapTimesRef.current[i - 1]);
       }
+<<<<<<< HEAD
       const avgInterval = intervals.reduce((sum, val) => sum + val, 0) / intervals.length;
       let tappedBpm;
       if (timeMode === '8-beat') {
@@ -372,23 +394,43 @@ export const useMetronome = () => {
         tappedBpm = 60000 / avgInterval;
       }
       setBpmPrecise(tappedBpm);
+=======
+      
+      const averageInterval = intervals.reduce((sum, interval) => sum + interval, 0) / intervals.length;
+      const calculatedBpm = Math.round(60000 / averageInterval);
+      
+      // Only update if the BPM is reasonable
+      if (calculatedBpm >= 40 && calculatedBpm <= 300) {
+        setBpm(calculatedBpm);
+      }
+>>>>>>> youtuber
     }
-  }, [setBpmPrecise, timeMode]);
+    
+    // Clear old taps after 3 seconds
+    setTimeout(() => {
+      const cutoff = Date.now() - 3000;
+      tapTimesRef.current = tapTimesRef.current.filter(time => time > cutoff);
+    }, 3000);
+  }, []);
+
+  const toggleMute = useCallback(() => {
+    setIsMuted(prev => !prev);
+  }, []);
 
   return {
     bpm,
     currentBeat,
     isRunning,
-    timeMode,
     isMuted,
-    tapTempo,
+    timeMode,
     start,
     stop,
-    adjustBpm,
     setBpm: setBpmPrecise,
     setCurrentBeat,
+    adjustBpm,
     setTimeMode,
+    tapTempo,
     toggleMute,
-    getTimeModeConfig: () => getTimeModeConfig(timeMode)
+    getTimeModeConfig
   };
 };

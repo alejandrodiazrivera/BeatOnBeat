@@ -10,7 +10,7 @@ const Footer = () => {
         <div className="footer-section">
           <div className="logo-container">
             <img 
-              src="/Logo.png" 
+              src="/LogoInv.png" 
               alt="OnBeat Logo" 
               className="footer-logo" 
             />
@@ -64,7 +64,7 @@ const Footer = () => {
         <div className="footer-section">
           <h3 className="section-title">Newsletter</h3>
           <p className="newsletter-text">Subscribe for updates</p>
-          <form className="newsletter-form">
+          <form className="newsletter-form" onSubmit={(e) => { e.preventDefault(); alert('Newsletter subscription not implemented yet.'); }}>
             <input type="email" placeholder="Your email" required />
             <button type="submit">Subscribe</button>
           </form>

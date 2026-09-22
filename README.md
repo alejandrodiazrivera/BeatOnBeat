@@ -1,4 +1,49 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/pages/api-reference/create-next-app).
+# OnBeat - Video Metronome & Practice Tool
+
+OnBeat is a powerful video metronome application built with Next.js that helps musicians practice with YouTube videos by providing synchronized metronome beats and cue point management.
+
+## Features
+
+### 🎵 Video Support
+- **YouTube Videos**: Regular YouTube videos with full URL support
+- **YouTube Reels/Shorts**: Full support for YouTube Shorts and Reels
+- **Local Video Files**: Upload and practice with local video files (MP4, WebM, MOV)
+
+### 🥁 Metronome Features
+- **Manual Metronome**: Built with Web Audio API for precise timing
+- **Auto-Sync Metronome**: Automatic BPM detection from video audio (Tone.js)
+- **Multiple Time Signatures**: 8-beat and Flamenco 12-beat modes
+- **Tap Tempo**: Quickly set BPM by tapping the beat
+- **Strong Beat Accents**: Visual and audio emphasis on important beats
+- **Mute Function**: Practice with visual metronome only
+
+### 📍 Cue Point Management
+- **Add Cues**: Mark important moments in videos with custom titles and notes
+- **Edit/Delete Cues**: Full CRUD operations for cue points
+- **Jump to Cues**: Quick navigation to marked timestamps
+- **Precise Timing**: Millisecond precision for cue placement
+
+### 🎬 Video Controls
+- **Playback Speed**: Adjust video speed for practice (0.25x to 2x)
+- **Skip Controls**: Quick 5-second forward/backward navigation
+- **Overlay Toggle**: Show/hide time and beat overlays
+- **Full Control Integration**: Seamless video and metronome synchronization
+
+## Supported YouTube URL Formats
+
+The application automatically detects and supports these YouTube URL formats:
+
+```
+Regular Videos:
+- https://www.youtube.com/watch?v=VIDEO_ID
+- https://youtu.be/VIDEO_ID
+
+YouTube Reels/Shorts:
+- https://www.youtube.com/shorts/VIDEO_ID
+- https://youtube.com/shorts/VIDEO_ID
+```
+
+All formats support additional parameters (timestamps, sharing parameters, etc.) and will correctly extract the 11-character video ID.
 
 ## Getting Started
 
@@ -16,13 +61,27 @@ bun dev
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
-You can start editing the page by modifying `pages/index.tsx`. The page auto-updates as you edit the file.
+## Usage
 
-[API routes](https://nextjs.org/docs/pages/building-your-application/routing/api-routes) can be accessed on [http://localhost:3000/api/hello](http://localhost:3000/api/hello). This endpoint can be edited in `pages/api/hello.ts`.
+1. **Load a Video**: Paste any YouTube URL (including Reels) or upload a local video file
+2. **Set Up Metronome**: Choose manual or auto-sync mode, adjust BPM and time signature
+3. **Add Cue Points**: Mark important sections for easy navigation
+4. **Practice**: Use synchronized video and metronome for effective practice sessions
 
-The `pages/api` directory is mapped to `/api/*`. Files in this directory are treated as [API routes](https://nextjs.org/docs/pages/building-your-application/routing/api-routes) instead of React pages.
+## Tech Stack
 
-This project uses [`next/font`](https://nextjs.org/docs/pages/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- **Framework**: Next.js 14 with TypeScript
+- **Audio**: Web Audio API (manual metronome) + Tone.js (auto-sync)
+- **Styling**: Tailwind CSS
+- **Video Processing**: YouTube Iframe API + HTML5 Video
+
+## Architecture
+
+- `src/hooks/useMetronome.ts` - Manual metronome with Web Audio API
+- `src/hooks/useToneMetronome.ts` - Tone.js-based metronome
+- `src/hooks/useToneAutoSync.ts` - Auto BPM detection and sync
+- `src/utils/youtubeUtils.ts` - YouTube URL parsing and validation
+- `src/components/VideoPlayer.tsx` - Unified video player component
 
 ## Learn More
 

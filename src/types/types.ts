@@ -1,6 +1,7 @@
 export interface CuePoint {
   id: string;
   time: string;
+  endTime?: string;
   title: string;
   note: string;
   beat?: number;

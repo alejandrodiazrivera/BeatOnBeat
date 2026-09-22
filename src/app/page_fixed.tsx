@@ -2,6 +2,10 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { CuePoint } from '../types/types';
 import { useMetronome } from '../hooks/useMetronome';
+<<<<<<< HEAD
+=======
+import { extractVideoId } from '../utils/youtubeUtils';
+>>>>>>> youtuber
 
 // Utility functions for precise time handling
 
@@ -26,7 +30,10 @@ import Footer from '../components/Footer/Footer';
 
 export default function Home() {
   const [videoUrl, setVideoUrl] = useState('');
+<<<<<<< HEAD
   const [videoId, setVideoId] = useState<string | null>(null);
+=======
+>>>>>>> youtuber
   const [currentTime, setCurrentTime] = useState(0);
   const [cuePoints, setCuePoints] = useState<CuePoint[]>([]);
   const [currentCue, setCurrentCue] = useState<CuePoint | null>(null);
@@ -37,6 +44,7 @@ export default function Home() {
   const [wasVideoPlaying, setWasVideoPlaying] = useState(false);
   const [pausedBeat, setPausedBeat] = useState(1);
   const [playbackSpeed, setPlaybackSpeed] = useState(1);
+<<<<<<< HEAD
   const [videoFile, setVideoFile] = useState<File | null>(null);
   
   // Sync lock state for video-metronome synchronization
@@ -46,6 +54,11 @@ export default function Home() {
     beat: number;
     videoTime: number;
   } | null>(null);
+=======
+  // Removed unused videoFile state
+  
+  // Removed unused isLocked and syncReference states
+>>>>>>> youtuber
   
   // Refs for accessing video elements
   const videoElementRef = useRef<HTMLVideoElement | null>(null);
@@ -59,7 +72,10 @@ export default function Home() {
     start: startMetronome,
     stop: stopMetronome,
     adjustBpm,
+<<<<<<< HEAD
     setBpm,
+=======
+>>>>>>> youtuber
     setCurrentBeat,
     setTimeMode,
     tapTempo,
@@ -69,6 +85,7 @@ export default function Home() {
 
   const timeUpdateIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
+<<<<<<< HEAD
   const extractVideoId = (url: string): string | null => {
     if (url.includes('youtube.com/watch?v=')) {
       return url.split('v=')[1].split('&')[0];
@@ -101,6 +118,19 @@ export default function Home() {
       console.log('📁 Video file uploaded:', file.name, 'Size:', (file.size / 1024 / 1024).toFixed(2), 'MB');
     }
   };
+=======
+  const loadVideo = () => {
+    const id = extractVideoId(videoUrl);
+    if (id) {
+      // Video ID extracted, but not used
+      startTimeTracking(true); // Reset time when loading new video
+    } else {
+      alert('Please enter a valid YouTube URL (videos or reels)');
+    }
+  };
+
+  // Removed unused handleVideoUpload function
+>>>>>>> youtuber
 
   const startTimeTracking = (resetTime = false) => {
     stopTimeTracking();
@@ -167,23 +197,36 @@ export default function Home() {
       // If video is already paused but metronome is running, stop just the metronome
       console.log('🥁 Metronome is running, stopping it');
       stopMetronome();
+<<<<<<< HEAD
     } else {
       console.log('🎬 Video and metronome are already stopped');
+=======
+>>>>>>> youtuber
     }
 
     const minutes = Math.floor(currentTime / 60).toString().padStart(2, '0');
     const seconds = Math.floor(currentTime % 60).toString().padStart(2, '0');
     const milliseconds = Math.floor((currentTime % 1) * 1000);
+<<<<<<< HEAD
     
+=======
+>>>>>>> youtuber
     // Include milliseconds for precision if not zero
     const time = milliseconds === 0 
       ? `${minutes}:${seconds}`
       : `${minutes}:${seconds}.${milliseconds.toString().padStart(3, '0')}`;
+<<<<<<< HEAD
     
     // For new cues, set editingCue to a template object WITHOUT an id
     setEditingCue({
       id: '', // Empty id indicates this is a new cue template
       time,
+=======
+
+    setEditingCue({
+      id: '', // Empty id indicates this is a new cue template
+      time: time,
+>>>>>>> youtuber
       title: '',
       note: '',
       beat: isMetronomeRunning ? currentBeat : undefined
@@ -374,6 +417,7 @@ export default function Home() {
   };
 
   // Handle sync lock toggle
+<<<<<<< HEAD
   const handleLockSync = (syncData: { bpm: number; beat: number; videoTime: number }) => {
     if (syncData.bpm === 0) {
       // Unlock
@@ -420,6 +464,17 @@ export default function Home() {
     
     setIsPlaying(true);
     startTimeTracking();
+=======
+  // Removed unused handleLockSync function
+
+  // Get current video time for sync reference
+  // Removed unused getCurrentVideoTime function
+
+  // Enhanced play handler for sync mode
+  const handlePlay = () => {
+  setIsPlaying(true);
+  startTimeTracking();
+>>>>>>> youtuber
   };
 
   useEffect(() => {
@@ -439,7 +494,11 @@ export default function Home() {
               type="text"
               value={videoUrl}
               onChange={(e) => setVideoUrl(e.target.value)}
+<<<<<<< HEAD
               placeholder="Paste YouTube URL..."
+=======
+              placeholder="Paste YouTube URL (videos or reels)..."
+>>>>>>> youtuber
               className="flex-1 p-3 border-2 border-InputboxColor rounded-lg focus:ring-2 focus:ring-InputboxHighlight focus:border-InputboxHighlight focus:outline-none text-InputText placeholder-InputboxColor"
             />
             <button
@@ -452,12 +511,18 @@ export default function Home() {
 
           <div className="mb-4 aspect-video bg-black rounded-lg overflow-hidden">
             <VideoPlayer
+<<<<<<< HEAD
               videoFile={videoFile}
               currentTime={currentTime}
               currentBeat={currentBeat}
               currentCue={currentCue}
               overlaysVisible={overlaysVisible}
               isMetronomeRunning={isMetronomeRunning}
+=======
+              currentTime={currentTime}
+              currentCue={currentCue}
+              overlaysVisible={overlaysVisible}
+>>>>>>> youtuber
               isPlaying={isPlaying}
               playbackSpeed={playbackSpeed}
               onTimeUpdate={setCurrentTime}
@@ -466,10 +531,13 @@ export default function Home() {
               onVideoElementReady={(element) => {
                 videoElementRef.current = element;
               }}
+<<<<<<< HEAD
               onVideoFileUploaded={(file) => {
                 console.log('📁 VideoPlayer uploaded file:', file.name);
                 setVideoFile(file);
               }}
+=======
+>>>>>>> youtuber
             />
           </div>
 
@@ -481,12 +549,16 @@ export default function Home() {
               onSkipBack={handleSkipBack}
               onSkipForward={handleSkipForward}
               onSpeedChange={handleSpeedChange}
+<<<<<<< HEAD
               onAddCue={handleAddCue}
               onToggleOverlay={handleToggleOverlay}
               overlaysVisible={overlaysVisible}
               playbackSpeed={playbackSpeed}
               onUploadVideo={handleVideoUpload}
               uploadButtonId="video-upload-controls"
+=======
+              playbackSpeed={playbackSpeed}
+>>>>>>> youtuber
             />
           </div>
 
@@ -497,7 +569,10 @@ export default function Home() {
               isRunning={isMetronomeRunning}
               timeMode={timeMode}
               isMuted={isMuted}
+<<<<<<< HEAD
               isLocked={isLocked}
+=======
+>>>>>>> youtuber
               onTapTempo={tapTempo}
               onStart={handleStartMetronome}
               onStop={stopMetronome}
@@ -505,9 +580,13 @@ export default function Home() {
               onBpmChange={(newBpm) => adjustBpm(newBpm - (bpm ?? 0))}
               onTimeModeChange={setTimeMode}
               onToggleMute={toggleMute}
+<<<<<<< HEAD
               onLockSync={handleLockSync}
               getTimeModeConfig={getTimeModeConfig}
               getCurrentVideoTime={getCurrentVideoTime}
+=======
+              getTimeModeConfig={getTimeModeConfig}
+>>>>>>> youtuber
             />
 
             <CueList
@@ -523,8 +602,11 @@ export default function Home() {
             <div className="fixed inset-0 bg-black bg-opacity-50 z-40 flex items-center justify-center">
               <CueForm
                 currentTime={currentTime}
+<<<<<<< HEAD
                 currentBeat={currentBeat}
                 timeMode={timeMode}
+=======
+>>>>>>> youtuber
                 onSubmit={handleSubmitCue}
                 editingCue={editingCue}
                 onCancel={() => setEditingCue(null)}
