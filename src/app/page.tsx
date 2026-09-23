@@ -289,6 +289,8 @@ export default function Home() {
     setPracticeName('');
     resumeAfterSaveRef.current = true;
     setIsSaveLoopDialogOpen(false);
+    // Open saved loops sidebar when a loop is saved
+    setIsSavedLoopsOpen(true);
   };
 
   const handleOpenSaveLoopDialog = () => {

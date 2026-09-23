@@ -550,6 +550,57 @@ export default function VideoPlayer({
     }
   }, [videoId, videoSrc]);
 
+  // Mirror effect: apply inline transform to ensure iframe/video flips reliably
+  useEffect(() => {
+    let observer: MutationObserver | null = null;
+
+    const applyTransform = (el: HTMLElement | null) => {
+      if (!el) return;
+      try {
+        el.style.transform = isMirrored ? 'scaleX(-1)' : 'none';
+        el.style.transformOrigin = '50% 50%';
+        el.style.willChange = 'transform';
+      } catch (e) {
+        if (debug) console.error('Mirror apply error:', e);
+      }
+    };
+
+    try {
+      applyTransform(containerRef.current as HTMLElement | null);
+      applyTransform(videoRef.current as HTMLElement | null);
+
+      // If the YouTube iframe isn't present yet, observe the container and apply when added
+      if (containerRef.current) {
+        // Also try to apply to any existing iframe inside
+        const existingIframe = containerRef.current.querySelector('iframe') as HTMLElement | null;
+        if (existingIframe) applyTransform(existingIframe);
+
+        observer = new MutationObserver((mutations) => {
+          for (const m of mutations) {
+            m.addedNodes.forEach(node => {
+              if (node instanceof HTMLElement) {
+                if (node.tagName.toLowerCase() === 'iframe') {
+                  applyTransform(node as HTMLElement);
+                } else {
+                  const nested = node.querySelector?.('iframe') as HTMLElement | null;
+                  if (nested) applyTransform(nested);
+                }
+              }
+            });
+          }
+        });
+
+        observer.observe(containerRef.current, { childList: true, subtree: true });
+      }
+    } catch (e) {
+      if (debug) console.error('Mirror effect error:', e);
+    }
+
+    return () => {
+      if (observer) observer.disconnect();
+    };
+  }, [isMirrored, debug]);
+
   // Render
   return (
     <div 
