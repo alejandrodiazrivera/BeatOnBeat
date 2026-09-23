@@ -140,7 +140,7 @@ const VideoControls: FC<VideoControlsProps> = ({
         title="Save loop"
       >
         <Save className="h-4 w-4" />
-        Save loop
+        Save
       </button>
 
       {canClearLoop && (
