@@ -508,6 +508,9 @@ export default function LibraryPage() {
       window.clearInterval(loopTimerRef.current);
       loopTimerRef.current = null;
     }
+    if (playerRef.current && typeof (playerRef.current as unknown as { pauseVideo?: unknown }).pauseVideo === 'function') {
+      playerRef.current.pauseVideo();
+    }
   }, []);
 
   useEffect(() => {

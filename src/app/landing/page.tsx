@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 
 export const metadata = {
@@ -12,10 +13,15 @@ export default function LandingPage() {
       {/* Nav */}
       <header className="sticky top-0 z-50 border-b border-Borders bg-Navbar">
         <nav className="mx-auto flex h-16 max-w-6xl items-center justify-between px-6">
-          <Link href="/landing" className="flex items-center gap-2.5">
-            <span className="grid h-8 w-8 place-items-center rounded-md bg-white text-sm font-bold text-Navbar">
-              CL
-            </span>
+          <Link href="/" className="flex items-center gap-2.5">
+            <Image
+              src="/LogoInv.png"
+              alt="ChoreoLab Logo"
+              width={60}
+              height={60}
+              className="h-10 w-10 rounded-md object-contain"
+              priority
+            />
             <span className="text-base font-semibold tracking-tight text-white">
               ChoreoLab
             </span>
@@ -266,9 +272,13 @@ export default function LandingPage() {
       <footer className="border-t border-Separator">
         <div className="mx-auto flex max-w-6xl flex-col items-start justify-between gap-6 px-6 py-10 sm:flex-row sm:items-center">
           <div className="flex items-center gap-2.5">
-            <span className="grid h-7 w-7 place-items-center rounded-md bg-Navbar text-[11px] font-bold text-white">
-              CL
-            </span>
+            <Image
+              src="/Logo.png"
+              alt="ChoreoLab Logo"
+              width={28}
+              height={28}
+              className="h-7 w-7 rounded-md object-contain"
+            />
             <span className="text-sm font-medium">ChoreoLab</span>
           </div>
 

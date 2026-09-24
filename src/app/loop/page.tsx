@@ -1,5 +1,6 @@
 'use client';
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { PanelRightClose } from 'lucide-react';
 import { CuePoint } from '../../types/types';
 import { extractVideoId } from '../../utils/youtubeUtils';
@@ -29,6 +30,13 @@ const formatPracticeTime = (timeInSeconds: number): string => {
 };
 
 export default function LoopPage() {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const supabase: SupabaseClient | null = useMemo(() => {
+    if (!supabaseUrl || !supabaseAnonKey) return null;
+    return createClient(supabaseUrl, supabaseAnonKey);
+  }, [supabaseAnonKey, supabaseUrl]);
+
   const [videoUrl, setVideoUrl] = useState('');
   const [videoId, setVideoId] = useState<string | null>(null);
   const [currentTime, setCurrentTime] = useState(0);
@@ -45,17 +53,139 @@ export default function LoopPage() {
   const [practiceName, setPracticeName] = useState('');
   const [isSaveLoopDialogOpen, setIsSaveLoopDialogOpen] = useState(false);
   const [isSavedLoopsOpen, setIsSavedLoopsOpen] = useState(false);
+  const [libraryVideoId, setLibraryVideoId] = useState<string | null>(null);
   const currentTimeRef = useRef(0);
   const videoFileInputRef = useRef<HTMLInputElement>(null);
   const resumeAfterSaveRef = useRef(false);
   const ignorePauseUntilRef = useRef(0);
   // Removed unused videoFile state
+
+  const fetchVideoMeta = useCallback(async (youtubeId: string) => {
+    const fallback = {
+      title: `YouTube video ${youtubeId}`,
+      channel: 'YouTube',
+      thumbnail: `https://i.ytimg.com/vi/${youtubeId}/hqdefault.jpg`,
+    };
+
+    try {
+      const url = `https://www.youtube.com/oembed?url=${encodeURIComponent(`https://www.youtube.com/watch?v=${youtubeId}`)}&format=json`;
+      const response = await fetch(url);
+      if (!response.ok) return fallback;
+      const json = (await response.json()) as {
+        title?: string;
+        author_name?: string;
+        thumbnail_url?: string;
+      };
+
+      return {
+        title: json.title || fallback.title,
+        channel: json.author_name || fallback.channel,
+        thumbnail: json.thumbnail_url || fallback.thumbnail,
+      };
+    } catch {
+      return fallback;
+    }
+  }, []);
+
+  const registerVideoInLibrary = useCallback(async (youtubeId: string): Promise<string | null> => {
+    if (!supabase) return null;
+
+    try {
+      const { data: existing, error: existingError } = await supabase
+        .from('videos')
+        .select('id')
+        .eq('youtube_id', youtubeId)
+        .maybeSingle();
+
+      if (existingError) {
+        throw existingError;
+      }
+
+      if (existing) {
+        return existing.id as string;
+      }
+
+      const meta = await fetchVideoMeta(youtubeId);
+      const { data: created, error: insertError } = await supabase
+        .from('videos')
+        .insert({
+          youtube_id: youtubeId,
+          title: meta.title,
+          channel_name: meta.channel,
+          thumbnail_url: meta.thumbnail,
+          added_by: null,
+        })
+        .select('id')
+        .single();
+
+      if (insertError && insertError.code !== '23505') {
+        throw insertError;
+      }
+
+      if (created?.id) {
+        return created.id as string;
+      }
+
+      // Race-safe fallback when another client inserted the video first.
+      const { data: retryExisting } = await supabase
+        .from('videos')
+        .select('id')
+        .eq('youtube_id', youtubeId)
+        .maybeSingle();
+
+      return (retryExisting?.id as string | undefined) ?? null;
+    } catch (error) {
+      // Keep loop workflow uninterrupted if the library sync fails.
+      console.error('Failed to register loaded loop video in library:', error);
+      return null;
+    }
+  }, [fetchVideoMeta, supabase]);
+
+  const loadLibraryLoops = useCallback(async (videoRowId: string) => {
+    if (!supabase) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('loops')
+        .select('id,name,start_seconds,end_seconds')
+        .eq('video_id', videoRowId)
+        .order('start_seconds', { ascending: true });
+
+      if (error) {
+        throw error;
+      }
+
+      const mapped: CuePoint[] = (data ?? []).map((row: {
+        id: string;
+        name: string;
+        start_seconds: number;
+        end_seconds: number;
+      }) => ({
+        id: row.id,
+        title: row.name,
+        time: formatPracticeTime(Number(row.start_seconds)),
+        endTime: formatPracticeTime(Number(row.end_seconds)),
+        note: '',
+      }));
+
+      setCuePoints(mapped);
+    } catch (error) {
+      console.error('Failed to load library loops for video:', error);
+    }
+  }, [supabase]);
   
-  const loadVideo = () => {
+  const loadVideo = async () => {
     const id = extractVideoId(videoUrl);
     if (id) {
       setVideoId(id);
       startTimeTracking(true); // Reset time when loading new video
+      setCuePoints([]);
+
+      const linkedVideoId = await registerVideoInLibrary(id);
+      setLibraryVideoId(linkedVideoId);
+      if (linkedVideoId) {
+        await loadLibraryLoops(linkedVideoId);
+      }
     } else {
       alert('Please enter a valid YouTube URL (videos or reels)');
     }
@@ -265,15 +395,43 @@ export default function LoopPage() {
     setPracticeName('');
   };
 
-  const handleSavePracticeLoop = () => {
+  const handleSavePracticeLoop = async () => {
     if (practiceStart === null || practiceEnd === null) {
       alert('Mark both a start and end point before saving a practice loop.');
       return;
     }
 
     const title = practiceName.trim() || `Practice loop ${cuePoints.length + 1}`;
+    let savedLoopId = Date.now().toString();
+
+    if (libraryVideoId && supabase) {
+      try {
+        const { data: createdLoop, error } = await supabase
+          .from('loops')
+          .insert({
+            video_id: libraryVideoId,
+            name: title,
+            start_seconds: practiceStart,
+            end_seconds: practiceEnd,
+            added_by: null,
+          })
+          .select('id')
+          .single();
+
+        if (error) {
+          throw error;
+        }
+
+        if (createdLoop?.id) {
+          savedLoopId = createdLoop.id as string;
+        }
+      } catch (error) {
+        console.error('Failed to save loop to communal library:', error);
+      }
+    }
+
     const savedLoop: CuePoint = {
-      id: Date.now().toString(),
+      id: savedLoopId,
       time: formatPracticeTime(practiceStart),
       endTime: formatPracticeTime(practiceEnd),
       title,
@@ -351,14 +509,14 @@ export default function LoopPage() {
                 onKeyDown={(event) => {
                   if (event.key === 'Enter') {
                     event.preventDefault();
-                    loadVideo();
+                    void loadVideo();
                   }
                 }}
                 placeholder="Paste a YouTube link and press Enter..."
                 className="min-w-0 flex-1 bg-transparent py-2 text-sm outline-none placeholder:text-TextXl"
               />
               <button
-                onClick={loadVideo}
+                onClick={() => void loadVideo()}
                 className="rounded-lg bg-Navbar px-4 py-2 text-sm font-semibold text-Save transition hover:bg-Borders"
               >
                 Load
@@ -452,7 +610,7 @@ export default function LoopPage() {
           <form
             onSubmit={(event) => {
               event.preventDefault();
-              handleSavePracticeLoop();
+              void handleSavePracticeLoop();
             }}
             className="w-full max-w-md rounded-2xl border border-Separator bg-white p-6 shadow-xl"
             role="dialog"
