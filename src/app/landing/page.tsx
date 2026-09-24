@@ -34,7 +34,7 @@ export default function LandingPage() {
             >
               Library
             </Link>
-            <Link href="/practice" className="ds-btn-primary bg-white text-Navbar hover:bg-LayersToggle hover:text-Navbar">
+            <Link href="/loop" className="ds-btn-primary bg-white text-Navbar hover:bg-LayersToggle hover:text-Navbar">
               Open app
             </Link>
           </div>
@@ -63,7 +63,7 @@ export default function LandingPage() {
             </p>
 
             <div className="mt-9 flex flex-wrap items-center gap-3">
-              <Link href="/practice" className="ds-btn-primary">
+              <Link href="/loop" className="ds-btn-primary">
                 <PlayGlyph />
                 Start practicing
               </Link>
@@ -283,7 +283,7 @@ export default function LandingPage() {
           </div>
 
           <nav className="flex items-center gap-6 text-sm text-TextL">
-            <Link href="/practice" className="transition-colors hover:text-Text">Practice</Link>
+            <Link href="/loop" className="transition-colors hover:text-Text">Practice</Link>
             <Link href="/library"  className="transition-colors hover:text-Text">Library</Link>
           </nav>
 
