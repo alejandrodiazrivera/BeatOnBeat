@@ -64,7 +64,7 @@ const Header = () => {
               <div className="mr-3">
                 <img 
                   src="/Logo.png" 
-                  alt="BeOnBeat Logo"
+                  alt="ChoreoLab Logo"
                   width={60}
                   height={60}
                   className={`transition-all duration-400 ${isScrolled ? 'opacity-100' : 'opacity-90'}`}
@@ -84,8 +84,8 @@ const Header = () => {
             <a href="/about" className={`font-medium transition-colors duration-400 ${isScrolled ? 'text-[black] hover:text-[#f0807f]' : 'text-black hover:text-[#f0807f]'}`}>
               About
             </a>
-            <a href="/music" className={`font-medium transition-colors duration-400 ${isScrolled ? 'text-[black] hover:text-[#f0807f]' : 'text-black hover:text-[#f0807f]'}`}>
-              Music
+            <a href="/library" className={`font-medium transition-colors duration-400 ${isScrolled ? 'text-[black] hover:text-[#f0807f]' : 'text-black hover:text-[#f0807f]'}`}>
+              Library
             </a>
             <a href="/contact" className={`font-medium transition-colors duration-400 ${isScrolled ? 'text-[black] hover:text-[#f0807f]' : 'text-black hover:text-[#f0807f]'}`}>
               Contact
@@ -148,11 +148,11 @@ const Header = () => {
                 About
               </a>
               <a 
-                href="/music" 
+                href="/library" 
                 className="text-black hover:text-[#f0807f] font-medium py-2 transition-colors duration-200"
                 onClick={closeMobileMenu}
               >
-                Music
+                Library
               </a>
               <a 
                 href="/contact" 

@@ -14,9 +14,9 @@ const Footer = () => {
               alt="OnBeat Logo" 
               className="footer-logo" 
             />
-            <span className="brand-name">BeOnBeat</span>
+            <span className="brand-name">ChoreoLab</span>
           </div>
-          <p className="brand-tagline">Your ultimate music experience</p>
+          <p className="brand-tagline">Your ultimate dance experience</p>
           <div className="social-icons">
             <a href="#" aria-label="Instagram">
               <svg role="img" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor">
@@ -45,7 +45,7 @@ const Footer = () => {
           <ul className="footer-links">
             <li><a href="/">Home</a></li>
             <li><a href="/about">About</a></li>
-            <li><a href="/music">Music</a></li>
+            <li><a href="/library">Library</a></li>
             <li><a href="/pricing">Pricing</a></li>
           </ul>
         </div>
@@ -54,7 +54,7 @@ const Footer = () => {
         <div className="footer-section">
           <h3 className="section-title">Contact</h3>
           <ul className="footer-links">
-            <li><a href="mailto:info@beonbeat.com">info@beonbeat.com</a></li>
+            <li><a href="mailto:info@ChoreoLab.com">info@ChoreoLab.com</a></li>
             <li><a href="tel:+1234567890">+1 (234) 567-890</a></li>
             <li>123 Music Ave, Sound City</li>
           </ul>
@@ -72,7 +72,7 @@ const Footer = () => {
       </div>
 
       <div className="footer-bottom">
-        <p>&copy; {new Date().getFullYear()} BeOnBeat. All rights reserved.</p>
+        <p>&copy; {new Date().getFullYear()} ChoreoLab. All rights reserved.</p>
         <div className="legal-links">
           <a href="/privacy">Privacy Policy</a>
           <a href="/terms">Terms of Service</a>

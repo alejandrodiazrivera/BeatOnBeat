@@ -1,8 +1,8 @@
 'use client';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { PanelRightClose, PanelRightOpen } from 'lucide-react';
-import { CuePoint } from '../types/types';
-import { extractVideoId } from '../utils/youtubeUtils';
+import { CuePoint } from '../../types/types';
+import { extractVideoId } from '../../utils/youtubeUtils';
 
 // U  // Auto-sync functionsctions for precise time handling
 const parseTimeToSeconds = (timeString: string): number => {
@@ -15,12 +15,12 @@ const parseTimeToSeconds = (timeString: string): number => {
   
   return minutes * 60 + seconds;
 };
-import VideoPlayer from '../components/VideoPlayer';
-import VideoControls from '../components/VideoControls';
-import CueForm from '../components/CueForm';
-import CueList from '../components/CueList';
-import Header from '../components/Header/Header';
-import Footer from '../components/Footer/Footer';
+import VideoPlayer from '../../components/VideoPlayer';
+import VideoControls from '../../components/VideoControls';
+import CueForm from '../../components/CueForm';
+import CueList from '../../components/CueList';
+import Header from '../../components/Header/Header';
+import Footer from '../../components/Footer/Footer';
 
 const formatPracticeTime = (timeInSeconds: number): string => {
   const minutes = Math.floor(timeInSeconds / 60).toString().padStart(2, '0');
@@ -28,7 +28,7 @@ const formatPracticeTime = (timeInSeconds: number): string => {
   return `${minutes}:${seconds}`;
 };
 
-export default function Home() {
+export default function LoopPage() {
   const [videoUrl, setVideoUrl] = useState('');
   const [videoId, setVideoId] = useState<string | null>(null);
   const [currentTime, setCurrentTime] = useState(0);

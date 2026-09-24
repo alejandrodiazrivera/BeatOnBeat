@@ -5,7 +5,7 @@ import './globals.css'
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
-  title: 'BeOnBeat┃Timing moves',
+  title: 'ChoreoLab┃Timing moves',
   description: 'Analyze dance videos with cue points',
 }
 
