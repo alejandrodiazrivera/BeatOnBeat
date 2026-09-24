@@ -488,6 +488,13 @@ export default function LoopPage() {
     // VideoPlayer will automatically handle the speed change via its playbackSpeed prop
   };
 
+  const timelineDuration = useMemo(() => {
+    const cueTimes = cuePoints.map((cue) => parseTimeToSeconds(cue.time));
+    return Math.max(60, currentTime, practiceStart ?? 0, practiceEnd ?? 0, ...cueTimes);
+  }, [cuePoints, currentTime, practiceEnd, practiceStart]);
+
+  const pct = (timeInSeconds: number) => `${Math.min(100, Math.max(0, (timeInSeconds / timelineDuration) * 100))}%`;
+
   return (
     <div className="min-h-screen bg-white text-Text antialiased">
       <Header />
@@ -558,20 +565,93 @@ export default function LoopPage() {
               </div>
             </div>
 
-            <div className="grid gap-3 border-t border-Separator px-4 py-3 text-[13px] text-TextL md:grid-cols-3">
-              <div className="rounded-xl border border-Separator bg-white px-3.5 py-3">
-                <div className="text-[11px] font-bold uppercase tracking-[0.08em] text-TextXl">Loop Status</div>
-                <div className="mt-1 text-sm font-semibold text-Title">
-                  {loopMode === 'active' ? 'Looping section' : loopMode === 'activated' ? 'Waiting for loop out' : 'No active loop'}
+            <div className="border-t border-Separator px-4 py-4">
+              <div className="rounded-2xl border border-Separator bg-white p-5">
+                <div className="flex items-end justify-between gap-4">
+                  <div>
+                    <div className="text-[11px] font-bold uppercase tracking-[0.1em] text-TextXl">Timeline</div>
+                    <div className="mt-1 text-sm text-TextL">
+                      {practiceStart !== null && practiceEnd !== null
+                        ? (
+                          <>
+                            <span className="font-semibold text-Text">{formatPracticeTime(practiceStart)}</span>
+                            <span className="px-1">–</span>
+                            <span className="font-semibold text-Text">{formatPracticeTime(practiceEnd)}</span>
+                            <span className="px-2 text-TextXl">·</span>
+                            <span>{formatPracticeTime(Math.max(0, practiceEnd - practiceStart))} section</span>
+                          </>
+                        )
+                        : practiceStart !== null
+                          ? <><span className="font-semibold text-Text">{formatPracticeTime(practiceStart)}</span><span className="px-2 text-TextXl">·</span><span>waiting for OUT</span></>
+                          : 'No loop set'}
+                    </div>
+                  </div>
+                  <div className="text-right text-[13px] text-TextL tabular-nums">
+                    <div><span className="font-semibold text-Text">{formatPracticeTime(currentTime)}</span> / {formatPracticeTime(timelineDuration)}</div>
+                  </div>
                 </div>
-              </div>
-              <div className="rounded-xl border border-Separator bg-white px-3.5 py-3">
-                <div className="text-[11px] font-bold uppercase tracking-[0.08em] text-TextXl">Loop In</div>
-                <div className="mt-1 text-sm font-semibold text-Title">{practiceStart !== null ? formatPracticeTime(practiceStart) : '—'}</div>
-              </div>
-              <div className="rounded-xl border border-Separator bg-white px-3.5 py-3">
-                <div className="text-[11px] font-bold uppercase tracking-[0.08em] text-TextXl">Loop Out</div>
-                <div className="mt-1 text-sm font-semibold text-Title">{practiceEnd !== null ? formatPracticeTime(practiceEnd) : '—'}</div>
+
+                <div className="relative mt-7">
+                  <div className="relative h-2 rounded-full bg-Separator">
+                    <div className="absolute inset-y-0 left-0 rounded-full bg-Navbar/20" style={{ width: pct(currentTime) }} />
+
+                    {practiceStart !== null && practiceEnd !== null && practiceEnd > practiceStart && (
+                      <div
+                        className="absolute inset-y-[-3px] rounded-[4px] bg-Navbar/8"
+                        style={{ left: pct(practiceStart), width: `calc(${pct(practiceEnd)} - ${pct(practiceStart)})` }}
+                      />
+                    )}
+
+                    {cuePoints.map((cue) => {
+                      const cueTime = parseTimeToSeconds(cue.time);
+                      return (
+                        <div
+                          key={cue.id}
+                          className="absolute top-[-4px] h-4 w-[2px] -translate-x-1/2 rounded-full bg-Text2xl"
+                          style={{ left: pct(cueTime) }}
+                          title={`${cue.title} · ${cue.time}`}
+                        />
+                      );
+                    })}
+
+                    {practiceStart !== null && (
+                      <div className="absolute top-[-10px] h-7 w-[9px] -translate-x-1/2" style={{ left: pct(practiceStart) }}>
+                        <div className="absolute left-1/2 top-0 h-full w-[2px] -translate-x-1/2 bg-Navbar" />
+                        <div className="absolute top-0 left-1/2 h-[2px] w-[9px] -translate-x-1/2 bg-Navbar" />
+                        <div className="absolute bottom-0 left-1/2 h-[2px] w-[9px] -translate-x-1/2 bg-Navbar" />
+                        <span className="absolute bottom-[calc(100%+5px)] right-1/2 whitespace-nowrap rounded-md bg-Navbar px-2 py-1 text-[10px] font-bold uppercase tracking-[0.06em] text-white tabular-nums">
+                          IN {formatPracticeTime(practiceStart)}
+                        </span>
+                      </div>
+                    )}
+
+                    {practiceEnd !== null && (
+                      <div className="absolute top-[-10px] h-7 w-[9px] -translate-x-1/2" style={{ left: pct(practiceEnd) }}>
+                        <div className="absolute left-1/2 top-0 h-full w-[2px] -translate-x-1/2 bg-Navbar" />
+                        <div className="absolute top-0 left-1/2 h-[2px] w-[9px] -translate-x-1/2 bg-Navbar" />
+                        <div className="absolute bottom-0 left-1/2 h-[2px] w-[9px] -translate-x-1/2 bg-Navbar" />
+                        <span className="absolute bottom-[calc(100%+5px)] left-1/2 whitespace-nowrap rounded-md bg-Navbar px-2 py-1 text-[10px] font-bold uppercase tracking-[0.06em] text-white tabular-nums">
+                          OUT {formatPracticeTime(practiceEnd)}
+                        </span>
+                      </div>
+                    )}
+
+                    <div className="absolute top-[-7px] h-[22px] w-[2px] -translate-x-1/2 bg-Navbar" style={{ left: pct(currentTime) }}>
+                      <div className="absolute left-1/2 top-[-5px] h-[10px] w-[10px] -translate-x-1/2 rounded-full bg-Navbar shadow-[0_0_0_2px_#fff]" />
+                    </div>
+                  </div>
+
+                  <div className="relative mt-2 h-4 text-[10px] text-TextXl tabular-nums">
+                    {[0, 0.25, 0.5, 0.75, 1].map((ratio) => {
+                      const time = timelineDuration * ratio;
+                      return (
+                        <span key={ratio} className="absolute -translate-x-1/2" style={{ left: `${ratio * 100}%` }}>
+                          {formatPracticeTime(time)}
+                        </span>
+                      );
+                    })}
+                  </div>
+                </div>
               </div>
             </div>
 
