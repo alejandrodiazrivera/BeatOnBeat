@@ -10,7 +10,7 @@ interface CueManagerProps {
   testCueTrigger?: number; // Trigger for test cue (increment to trigger)
 }
 
-const CueManager: FC<CueManagerProps> = ({ currentTime, currentBeat, timeMode, testCueTrigger }) => {
+const CueManager: FC<CueManagerProps> = ({ currentTime, currentBeat, testCueTrigger }) => {
   const [cuePoints, setCuePoints] = useState<CuePoint[]>([]);
   const [editingCue, setEditingCue] = useState<CuePoint | null>(null);
 

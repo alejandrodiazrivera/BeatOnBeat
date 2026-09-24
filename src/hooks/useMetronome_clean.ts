@@ -1,5 +1,15 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 
+declare global {
+  interface Window {
+    webkitAudioContext?: typeof AudioContext;
+  }
+}
+
+const getAudioContextConstructor = (): typeof AudioContext => {
+  return window.AudioContext ?? window.webkitAudioContext ?? AudioContext;
+};
+
 export const useMetronome = (initialBpm = 100, beatsPerCycle = 8) => {
   const [bpm, setBpm] = useState<number>(initialBpm);
   const [isRunning, setIsRunning] = useState<boolean>(false);
@@ -10,7 +20,8 @@ export const useMetronome = (initialBpm = 100, beatsPerCycle = 8) => {
   const clickSourcesRef = useRef<OscillatorNode[]>([]);
 
   useEffect(() => {
-    audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+    const AudioContextConstructor = getAudioContextConstructor();
+    audioContextRef.current = new AudioContextConstructor();
     return () => {
       clickSourcesRef.current.forEach(source => {
         if (source) {

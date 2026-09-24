@@ -43,7 +43,6 @@ const MetronomeControls: FC<MetronomeControlsProps> = ({
   getTimeModeConfig,
   // Auto-sync props
   isLocked = false,
-  detectedBPM = null,
   isDetecting = false,
   onAutoSync
 }) => {

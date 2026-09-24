@@ -1,6 +1,16 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 
-export const useMetronome = (initialBpm = 100, beatsPerCycle = 8) => {
+declare global {
+  interface Window {
+    webkitAudioContext?: typeof AudioContext;
+  }
+}
+
+const getAudioContextConstructor = (): typeof AudioContext => {
+  return window.AudioContext ?? window.webkitAudioContext ?? AudioContext;
+};
+
+export const useMetronome = (initialBpm = 100) => {
   const [bpm, setBpm] = useState<number>(initialBpm);
   const [isRunning, setIsRunning] = useState<boolean>(false);
   const [currentBeat, setCurrentBeat] = useState<number>(1);
@@ -37,7 +47,8 @@ export const useMetronome = (initialBpm = 100, beatsPerCycle = 8) => {
   }, [getTimeModeConfig]);
 
   useEffect(() => {
-    audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+    const AudioContextConstructor = getAudioContextConstructor();
+    audioContextRef.current = new AudioContextConstructor();
     return () => {
       clickSourcesRef.current.forEach(source => {
         if (source) {

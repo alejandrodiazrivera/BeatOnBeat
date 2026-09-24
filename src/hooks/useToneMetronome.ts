@@ -103,6 +103,18 @@ export const useToneMetronome = (
     }
   }, [isMuted]);
 
+  const stop = useCallback(() => {
+    if (loopRef.current) {
+      loopRef.current.stop();
+      loopRef.current.dispose();
+      loopRef.current = null;
+    }
+    
+    setIsRunning(false);
+    setCurrentBeat(1);
+    console.log('🛑 Tone.js metronome stopped');
+  }, []);
+
   // Start metronome
   const start = useCallback(async (syncedBeat?: number) => {
     console.log('🎵 Metronome start called, isRunning:', isRunning);
@@ -121,9 +133,6 @@ export const useToneMetronome = (
       console.error('❌ Synth not available after initialization');
       return;
     }
-
-    const { beatsPerCycle, strongBeats } = getTimeModeConfig();
-    
     // Set starting beat (reset to 1 or use synced beat)
     const startingBeat = syncedBeat !== undefined ? syncedBeat : 1;
     setCurrentBeat(startingBeat);
@@ -164,23 +173,7 @@ export const useToneMetronome = (
     setIsRunning(true);
     
     console.log(`🎵 Tone.js metronome started at ${bpm} BPM, loop created:`, loop);
-  }, [isRunning, bpm, getTimeModeConfig, initializeTone, playClick]);
-
-  // Stop metronome
-  const stop = useCallback(() => {
-    if (loopRef.current) {
-      loopRef.current.stop();
-      loopRef.current.dispose();
-      loopRef.current = null;
-    }
-    
-    // Don't stop transport completely, just our loop
-    // This ensures immediate response for restart
-    
-    setIsRunning(false);
-    setCurrentBeat(1); // Reset to beat 1
-    console.log('🛑 Tone.js metronome stopped');
-  }, []);
+  }, [isRunning, bpm, getTimeModeConfig, initializeTone, playClick, stop]);
 
   // Adjust BPM
   const adjustBpm = useCallback((amount: number) => {

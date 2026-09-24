@@ -1,6 +1,6 @@
 'use client';
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { PanelRightClose, PanelRightOpen } from 'lucide-react';
+import { PanelRightClose } from 'lucide-react';
 import { CuePoint } from '../../types/types';
 import { extractVideoId } from '../../utils/youtubeUtils';
 
@@ -228,7 +228,6 @@ export default function LoopPage() {
     setPracticeEnd(null);
     setIsLoopingPractice(false);
     setLoopMode('activated');
-    setIsSavedLoopsOpen(true);
   };
 
   const handleMarkPracticeEnd = () => {
@@ -332,117 +331,118 @@ export default function LoopPage() {
   };
 
   return (
-    <div className="relative min-h-screen bg-gradient-to-br from-[white] via-[#F9FAFB] to-[white]">
+    <div className="min-h-screen bg-white text-Text antialiased">
       <Header />
       
-      <main className="pt-24 px-4">
-        <div className="container mx-auto max-w-6xl">
-      <div className="flex flex-col md:flex-row gap-2 mb-4">
-        <input
-          type="text"
-          value={videoUrl}
-          onChange={(e) => setVideoUrl(e.target.value)}
-          placeholder="Paste YouTube URL (videos or reels)..."
-          className="flex-1 p-3 border-2 border-InputboxColor rounded-lg focus:ring-2 focus:ring-InputboxHighlight focus:border-InputboxHighlight focus:outline-none text-InputText placeholder-InputboxColor"
-        />
-        <button
-          onClick={loadVideo}
-          className="bg-LoadVideo hover:bg-LoadVideoHover text-white px-4 py-3 rounded-lg transition-colors duration-200 font-medium"
-        >
-          Load Video
-        </button>
-      </div>
-
-      <div className="relative flex flex-col items-start gap-6 lg:flex-row">
-        <div className="min-w-0 flex-1">
-          <div className="mb-4 aspect-video bg-black rounded-lg overflow-hidden">
-            <VideoPlayer
-              videoId={videoId}
-              currentTime={currentTime}
-              currentCue={currentCue}
-              isPlaying={isPlaying}
-              isMirrored={isMirrored}
-              loop={loopMode !== 'inactive'}
-              muted={false}
-              playbackSpeed={playbackSpeed}
-              onTimeUpdate={handleTimeUpdate}
-              onPlayStateChange={handleVideoPlayStateChange}
-              onVideoEnded={handleVideoEnded}
-              fileInputRef={videoFileInputRef}
-              debug={false}
-              onVideoFileUploaded={(file) => {
-                console.log('📁 VideoPlayer uploaded file:', file.name);
-                setVideoId(null);
-                setCurrentTime(0);
-              }}
-            />
+      <main className="px-4 pt-24">
+        <div className="mx-auto max-w-[1220px] pb-24 pt-7">
+          <div className="mb-5">
+            <h1 className="text-[22px] font-semibold text-Title">Loop Workspace</h1>
           </div>
 
-          <div className="flex flex-wrap gap-3 mb-6 p-3 bg-transparent rounded-lg">
-            <VideoControls
-              onPlay={handlePlay}
-              onPause={handlePause}
-              onStop={handleStop}
-              onSkipBack={handleSkipBack}
-              onSkipForward={handleSkipForward}
-              onToggleMirror={() => setIsMirrored(prev => !prev)}
-              onOpenFilePicker={() => videoFileInputRef.current?.click()}
-              isMirrored={isMirrored}
-              onLoopModeChange={handleLoopModeChange}
-              onSaveLoop={handleOpenSaveLoopDialog}
-              onClearLoop={handleClearPracticeSection}
-              loopMode={loopMode}
-              canSaveLoop={practiceStart !== null && practiceEnd !== null}
-              canClearLoop={practiceStart !== null || practiceEnd !== null}
-              onSpeedChange={handleSpeedChange}
-              playbackSpeed={playbackSpeed}
-            />
+          <div className="mb-4 flex flex-wrap items-center gap-2.5">
+            <div className="flex min-w-[260px] flex-1 basis-[340px] items-center gap-2 rounded-xl border border-Borders bg-white py-1.5 pl-3.5 pr-1.5 transition focus-within:ring-2 focus-within:ring-Navbar/10">
+              <input
+                type="text"
+                autoComplete="off"
+                spellCheck={false}
+                value={videoUrl}
+                onChange={(e) => setVideoUrl(e.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter') {
+                    event.preventDefault();
+                    loadVideo();
+                  }
+                }}
+                placeholder="Paste a YouTube link and press Enter..."
+                className="min-w-0 flex-1 bg-transparent py-2 text-sm outline-none placeholder:text-TextXl"
+              />
+              <button
+                onClick={loadVideo}
+                className="rounded-lg bg-Navbar px-4 py-2 text-sm font-semibold text-Save transition hover:bg-Borders"
+              >
+                Load
+              </button>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => videoFileInputRef.current?.click()}
+              className="inline-flex h-[43px] items-center rounded-[11px] border border-Borders bg-white px-3.5 text-sm font-medium text-Text transition hover:border-Navbar hover:text-Title"
+            >
+              Choose file
+            </button>
           </div>
+
+          <section className="overflow-hidden rounded-2xl border border-Separator bg-white">
+            <div className="p-4">
+              <div className="overflow-hidden rounded-xl border border-Separator bg-Navbar">
+                <VideoPlayer
+                  videoId={videoId}
+                  currentTime={currentTime}
+                  currentCue={currentCue}
+                  isPlaying={isPlaying}
+                  isMirrored={isMirrored}
+                  loop={loopMode !== 'inactive'}
+                  muted={false}
+                  playbackSpeed={playbackSpeed}
+                  onTimeUpdate={handleTimeUpdate}
+                  onPlayStateChange={handleVideoPlayStateChange}
+                  onVideoEnded={handleVideoEnded}
+                  fileInputRef={videoFileInputRef}
+                  debug={false}
+                  onVideoFileUploaded={(file) => {
+                    console.log('📁 VideoPlayer uploaded file:', file.name);
+                    setVideoId(null);
+                    setCurrentTime(0);
+                  }}
+                />
+              </div>
+            </div>
+
+            <div className="grid gap-3 border-t border-Separator px-4 py-3 text-[13px] text-TextL md:grid-cols-3">
+              <div className="rounded-xl border border-Separator bg-white px-3.5 py-3">
+                <div className="text-[11px] font-bold uppercase tracking-[0.08em] text-TextXl">Loop Status</div>
+                <div className="mt-1 text-sm font-semibold text-Title">
+                  {loopMode === 'active' ? 'Looping section' : loopMode === 'activated' ? 'Waiting for loop out' : 'No active loop'}
+                </div>
+              </div>
+              <div className="rounded-xl border border-Separator bg-white px-3.5 py-3">
+                <div className="text-[11px] font-bold uppercase tracking-[0.08em] text-TextXl">Loop In</div>
+                <div className="mt-1 text-sm font-semibold text-Title">{practiceStart !== null ? formatPracticeTime(practiceStart) : '—'}</div>
+              </div>
+              <div className="rounded-xl border border-Separator bg-white px-3.5 py-3">
+                <div className="text-[11px] font-bold uppercase tracking-[0.08em] text-TextXl">Loop Out</div>
+                <div className="mt-1 text-sm font-semibold text-Title">{practiceEnd !== null ? formatPracticeTime(practiceEnd) : '—'}</div>
+              </div>
+            </div>
+
+            <div className="border-t border-Separator px-4 py-4">
+              <VideoControls
+                onPlay={handlePlay}
+                onPause={handlePause}
+                onStop={handleStop}
+                onSkipBack={handleSkipBack}
+                onSkipForward={handleSkipForward}
+                onToggleMirror={() => setIsMirrored(prev => !prev)}
+                isMirrored={isMirrored}
+                onLoopModeChange={handleLoopModeChange}
+                onSaveLoop={handleOpenSaveLoopDialog}
+                onClearLoop={handleClearPracticeSection}
+                onOpenSavedLoops={() => setIsSavedLoopsOpen(prev => !prev)}
+                loopMode={loopMode}
+                canSaveLoop={practiceStart !== null && practiceEnd !== null}
+                canClearLoop={practiceStart !== null || practiceEnd !== null}
+                onSpeedChange={handleSpeedChange}
+                playbackSpeed={playbackSpeed}
+              />
+            </div>
+          </section>
         </div>
-
-        <aside
-          className={`relative hidden shrink-0 overflow-hidden transition-[width] duration-300 ease-in-out lg:block ${
-            isSavedLoopsOpen ? 'w-[360px]' : 'w-0'
-          }`}
-          aria-hidden={!isSavedLoopsOpen}
-        >
-          <div className="w-[360px]">
-            <CueList
-              cuePoints={cuePoints}
-              currentTime={currentTime}
-              onEdit={handleEditCue}
-              onDelete={handleDeleteCue}
-              onJump={handleJumpToTimestamp}
-              onLoop={handleLoopCue}
-            />
-          </div>
-        </aside>
-
-        <button
-          type="button"
-          onClick={() => setIsSavedLoopsOpen(prev => !prev)}
-          className="absolute right-0 top-0 z-10 hidden h-10 w-10 translate-x-1/2 items-center justify-center rounded-full border-2 border-Borders bg-white text-Text shadow-md transition-colors hover:bg-gray-100 lg:flex"
-          aria-label={isSavedLoopsOpen ? 'Collapse saved loops sidebar' : 'Open saved loops sidebar'}
-          title={isSavedLoopsOpen ? 'Collapse saved loops sidebar' : 'Open saved loops sidebar'}
-        >
-          {isSavedLoopsOpen ? <PanelRightClose className="h-5 w-5" /> : <PanelRightOpen className="h-5 w-5" />}
-        </button>
-
-        <div className="w-full lg:hidden">
-          <CueList
-            cuePoints={cuePoints}
-            currentTime={currentTime}
-            onEdit={handleEditCue}
-            onDelete={handleDeleteCue}
-            onJump={handleJumpToTimestamp}
-            onLoop={handleLoopCue}
-          />
-        </div>
-      </div>
 
       {isSaveLoopDialogOpen && (
         <div
-          className="fixed inset-0 z-40 flex items-center justify-center bg-black/50 px-4"
+          className="fixed inset-0 z-40 flex items-center justify-center bg-Navbar/50 px-4 backdrop-blur-sm"
           onMouseDown={(event) => {
             if (event.target === event.currentTarget) {
               handleCloseSaveLoopDialog();
@@ -454,18 +454,18 @@ export default function LoopPage() {
               event.preventDefault();
               handleSavePracticeLoop();
             }}
-            className="w-full max-w-md rounded-xl border-2 border-Borders bg-white p-6 shadow-xl"
+            className="w-full max-w-md rounded-2xl border border-Separator bg-white p-6 shadow-xl"
             role="dialog"
             aria-modal="true"
             aria-labelledby="save-loop-title"
           >
-            <h2 id="save-loop-title" className="text-xl font-semibold text-Title">
+            <h2 id="save-loop-title" className="text-xl font-semibold tracking-tight text-Title">
               Save practice loop
             </h2>
-            <p className="mt-2 text-sm text-Text">
+            <p className="mt-2 text-sm text-TextL">
               Give this section a name so you can find it again in your cue points.
             </p>
-            <p className="mt-3 rounded-lg bg-gray-100 px-3 py-2 text-sm font-medium text-Text">
+            <p className="mt-3 rounded-lg border border-Separator bg-Separator/25 px-3 py-2 text-sm font-medium text-Text">
               {practiceStart !== null && practiceEnd !== null
                 ? `${formatPracticeTime(practiceStart)} - ${formatPracticeTime(practiceEnd)}`
                 : ''}
@@ -480,7 +480,7 @@ export default function LoopPage() {
               onChange={(event) => setPracticeName(event.target.value)}
               placeholder="e.g. Opening footwork"
               autoFocus
-              className="mt-4 w-full rounded-lg border-2 border-Borders px-3 py-3 text-Text outline-none focus:border-Cue"
+              className="mt-4 w-full rounded-lg border border-Borders px-3 py-3 text-Text outline-none transition focus:border-Navbar"
               maxLength={80}
               required
             />
@@ -488,13 +488,13 @@ export default function LoopPage() {
               <button
                 type="button"
                 onClick={handleCloseSaveLoopDialog}
-                className="rounded-lg border-2 border-Borders px-4 py-2 text-sm font-medium text-Text hover:bg-gray-100"
+                className="rounded-lg border border-Borders px-4 py-2 text-sm font-medium text-Text transition hover:bg-Separator/40"
               >
                 Cancel
               </button>
               <button
                 type="submit"
-                className="rounded-lg bg-Cue px-4 py-2 text-sm font-medium text-white hover:bg-CueHover"
+                className="rounded-lg bg-Navbar px-4 py-2 text-sm font-semibold text-Save transition hover:bg-Borders"
               >
                 Save loop
               </button>
@@ -503,8 +503,39 @@ export default function LoopPage() {
         </div>
       )}
 
+      <aside
+        className={`fixed right-0 top-0 z-50 h-full w-[min(420px,100%)] overflow-y-auto border-l border-Separator bg-white transition-transform duration-300 ease-out ${isSavedLoopsOpen ? 'translate-x-0' : 'translate-x-full'}`}
+        aria-hidden={!isSavedLoopsOpen}
+      >
+        <div className="px-5 pb-16 pt-5">
+          <div className="mb-3.5 flex items-center justify-between">
+            <div>
+              <span className="text-[11px] font-bold uppercase tracking-[0.1em] text-TextXl">Saved Loops</span>
+              <p className="mt-1 text-sm text-TextL">Practice sections you can jump to or restart as loops.</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setIsSavedLoopsOpen(false)}
+              className="grid h-8 w-8 place-items-center rounded-lg border border-Separator bg-white text-TextL transition hover:border-Borders hover:text-Text"
+              title="Close saved loops"
+            >
+              <PanelRightClose className="h-4 w-4" />
+            </button>
+          </div>
+
+          <CueList
+            cuePoints={cuePoints}
+            currentTime={currentTime}
+            onEdit={handleEditCue}
+            onDelete={handleDeleteCue}
+            onJump={handleJumpToTimestamp}
+            onLoop={handleLoopCue}
+          />
+        </div>
+      </aside>
+
       {editingCue && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-40 flex items-center justify-center">
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-Navbar/50 backdrop-blur-sm">
           <CueForm
             currentTime={currentTime}
             onSubmit={handleSubmitCue}
@@ -514,7 +545,6 @@ export default function LoopPage() {
           />
         </div>
       )}
-      </div>
       </main>
       <Footer />
     </div>

@@ -30,7 +30,7 @@ export default function Home() {
   const [currentTime, setCurrentTime] = useState(0);
   const [cuePoints, setCuePoints] = useState<CuePoint[]>([]);
   const [currentCue, setCurrentCue] = useState<CuePoint | null>(null);
-  const [overlaysVisible, setOverlaysVisible] = useState(true);
+  const [overlaysVisible] = useState(true);
   const [editingCue, setEditingCue] = useState<CuePoint | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [wasMetronomeRunning, setWasMetronomeRunning] = useState(false);
@@ -117,46 +117,6 @@ export default function Home() {
   useEffect(() => {
     checkActiveCue(currentTime);
   }, [currentTime, cuePoints, checkActiveCue]);
-
-  const handleAddCue = () => {
-    console.log('🎯 handleAddCue called - Current states:', {
-      isPlaying,
-      isMetronomeRunning,
-      currentTime,
-      currentBeat
-    });
-
-    // Track current states before pausing
-    setWasVideoPlaying(isPlaying);
-    setWasMetronomeRunning(isMetronomeRunning);
-    setPausedBeat(currentBeat);
-
-    // Pause both video and metronome when adding a cue - use proper handlers
-    if (isPlaying) {
-      console.log('🎬 Video is playing, pausing for cue add');
-      handlePause(); // Use the existing handlePause function for proper state management
-    } else if (isMetronomeRunning) {
-      // If video is already paused but metronome is running, stop just the metronome
-      console.log('🥁 Metronome is running, stopping it');
-      stopMetronome();
-    }
-
-    const minutes = Math.floor(currentTime / 60).toString().padStart(2, '0');
-    const seconds = Math.floor(currentTime % 60).toString().padStart(2, '0');
-    const milliseconds = Math.floor((currentTime % 1) * 1000);
-    // Include milliseconds for precision if not zero
-    const time = milliseconds === 0 
-      ? `${minutes}:${seconds}`
-      : `${minutes}:${seconds}.${milliseconds.toString().padStart(3, '0')}`;
-
-    setEditingCue({
-      id: '', // Empty id indicates this is a new cue template
-      time: time,
-      title: '',
-      note: '',
-      beat: isMetronomeRunning ? currentBeat : undefined
-    });
-  };
 
   const handleSubmitCue = (cue: Omit<CuePoint, 'id'>) => {
     console.log('handleSubmitCue called with:', cue);
@@ -316,10 +276,6 @@ export default function Home() {
     if (isPlaying) {
       startTimeTracking(false);
     }
-  };
-
-  const handleToggleOverlay = () => {
-    setOverlaysVisible(prev => !prev);
   };
 
   const handleStartMetronome = () => {

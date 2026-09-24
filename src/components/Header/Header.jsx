@@ -87,6 +87,9 @@ const Header = () => {
             <a href="/library" className={`font-medium transition-colors duration-400 ${isScrolled ? 'text-[black] hover:text-[#f0807f]' : 'text-black hover:text-[#f0807f]'}`}>
               Library
             </a>
+            <a href="/loop" className={`font-medium transition-colors duration-400 ${isScrolled ? 'text-[black] hover:text-[#f0807f]' : 'text-black hover:text-[#f0807f]'}`}>
+              Loop Workspace
+            </a>
             <a href="/contact" className={`font-medium transition-colors duration-400 ${isScrolled ? 'text-[black] hover:text-[#f0807f]' : 'text-black hover:text-[#f0807f]'}`}>
               Contact
             </a>
@@ -153,6 +156,13 @@ const Header = () => {
                 onClick={closeMobileMenu}
               >
                 Library
+              </a>
+              <a 
+                href="/loop" 
+                className="text-black hover:text-[#f0807f] font-medium py-2 transition-colors duration-200"
+                onClick={closeMobileMenu}
+              >
+                Loop Workspace
               </a>
               <a 
                 href="/contact" 

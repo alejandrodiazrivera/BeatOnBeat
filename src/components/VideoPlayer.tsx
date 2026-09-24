@@ -67,6 +67,14 @@ interface YTPlayerOptions {
   };
 }
 
+const playerVars = {
+  autoplay: 0,
+  controls: 0,
+  disablekb: 1,
+  rel: 0,
+  modestbranding: 1
+};
+
 // Overlay Components (memoized)
 const TimeOverlay = memo(({ currentTime }: { currentTime: number }) => {
   // Format time with milliseconds for precision
@@ -141,14 +149,6 @@ export default function VideoPlayer({
     onPlayStateChangeRef.current = onPlayStateChange;
     onVideoEndedRef.current = onVideoEnded;
   }, [isPlaying, onPlayStateChange, onVideoEnded]);
-
-  const playerVars = {
-    autoplay: 0,
-    controls: 0,
-    disablekb: 1,
-    rel: 0,
-    modestbranding: 1
-  };
 
   // Cleanup YouTube player
   const cleanupPlayer = useCallback(() => {
@@ -488,7 +488,7 @@ export default function VideoPlayer({
                 hasValidSource = true;
                 if (debug) console.log('🎞️ YouTube time (player not marked ready):', time);
               }
-            } catch (e) {
+            } catch {
               // Silently ignore - player not ready yet
               if (debug) console.log('🎞️ YouTube player not ready for time sync');
             }

@@ -32,11 +32,10 @@ export default function Home() {
   const [currentTime, setCurrentTime] = useState(0);
   const [cuePoints, setCuePoints] = useState<CuePoint[]>([]);
   const [currentCue, setCurrentCue] = useState<CuePoint | null>(null);
-  const [overlaysVisible, setOverlaysVisible] = useState(true);
+  const [overlaysVisible] = useState(true);
   const [editingCue, setEditingCue] = useState<CuePoint | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [wasMetronomeRunning, setWasMetronomeRunning] = useState(false);
-  const [pausedBeat, setPausedBeat] = useState(1);
   const [playbackSpeed, setPlaybackSpeed] = useState(1);
   const [timeMode, setTimeMode] = useState<'8-beat' | 'flamenco-12'>('8-beat');
   
@@ -52,7 +51,6 @@ export default function Home() {
     setBPM,
     toggleMute,
     tapTempo,
-    syncToBeat,
     getTimeModeConfig
   } = useToneMetronome(120, timeMode);
 
@@ -61,16 +59,7 @@ export default function Home() {
     isLocked,
     detectedBPM,
     isDetecting,
-    syncReference,
-    beatGrid,
-    initializeAudioAnalysis,
-    detectBPMFromVideo,
-    connectVideoElement,
-    lockSync,
-    unlockSync,
     toggleAutoSync,
-    getSyncedBeat,
-    adjustTempo,
     cleanup: cleanupAutoSync
   } = useToneAutoSync();
 
@@ -116,49 +105,6 @@ export default function Home() {
     checkActiveCue(currentTime);
   }, [currentTime, cuePoints, checkActiveCue]);
 
-  const handleAddCue = () => {
-    console.log('🎯 handleAddCue called - Current states:', {
-      isPlaying,
-      isMetronomeRunning,
-      currentTime,
-      currentBeat
-    });
-
-    // Track current states before pausing
-    setWasMetronomeRunning(isMetronomeRunning);
-    setPausedBeat(currentBeat);
-
-    // Pause both video and metronome when adding a cue - use proper handlers
-    if (isPlaying) {
-      console.log('🎬 Video is playing, pausing for cue add');
-      handlePause(); // Use the existing handlePause function for proper state management
-    } else if (isMetronomeRunning) {
-      // If video is already paused but metronome is running, stop just the metronome
-      console.log('🥁 Metronome is running, stopping it');
-      stopMetronome();
-    } else {
-      console.log('🎬 Video and metronome are already stopped');
-    }
-
-    const minutes = Math.floor(currentTime / 60).toString().padStart(2, '0');
-    const seconds = Math.floor(currentTime % 60).toString().padStart(2, '0');
-    const milliseconds = Math.floor((currentTime % 1) * 1000);
-    
-    // Include milliseconds for precision if not zero
-    const time = milliseconds === 0 
-      ? `${minutes}:${seconds}`
-      : `${minutes}:${seconds}.${milliseconds.toString().padStart(3, '0')}`;
-    
-    // For new cues, set editingCue to a template object WITHOUT an id
-    setEditingCue({
-      id: '', // Empty id indicates this is a new cue template
-      time,
-      title: '',
-      note: '',
-      beat: isMetronomeRunning ? currentBeat : undefined
-    });
-  };
-
   const handleSubmitCue = (cue: Omit<CuePoint, 'id'>) => {
     console.log('handleSubmitCue called with:', cue);
     console.log('editingCue:', editingCue);
@@ -184,7 +130,6 @@ export default function Home() {
     
     // Store the previous states before resetting them
     const shouldResumeMetronome = wasMetronomeRunning;
-    const beatToResume = pausedBeat;
     
     // Reset tracking states first
     setWasMetronomeRunning(false);
@@ -200,7 +145,6 @@ export default function Home() {
   const handleEditCue = (cue: CuePoint) => {
     // Track current states before pausing
     setWasMetronomeRunning(isMetronomeRunning);
-    setPausedBeat(currentBeat);
 
     // Pause both video and metronome when editing a cue - use proper handlers
     if (isPlaying) {
@@ -251,11 +195,10 @@ export default function Home() {
       if (isMetronomeRunning) {
         console.log('🥁 Auto-pausing metronome because video paused');
         setWasMetronomeRunning(true);
-        setPausedBeat(currentBeat);
         stopMetronome();
       }
     }
-  }, [isPlaying, isMetronomeRunning, currentBeat, stopMetronome]);
+  }, [isPlaying, isMetronomeRunning, stopMetronome]);
 
   const handleVideoEnded = useCallback(() => {
     console.log('🎬 Video ended - stopping metronome and resetting');
@@ -281,7 +224,6 @@ export default function Home() {
   const handlePause = () => {
     setIsPlaying(false);
     setWasMetronomeRunning(isMetronomeRunning);
-    setPausedBeat(currentBeat);
     // No need to stop manual timer - VideoPlayer handles everything
     if (isMetronomeRunning) {
       stopMetronome();
@@ -310,10 +252,6 @@ export default function Home() {
   const handleSpeedChange = (speed: number) => {
     setPlaybackSpeed(speed);
     // VideoPlayer will automatically handle the speed change via its playbackSpeed prop
-  };
-
-  const handleToggleOverlay = () => {
-    setOverlaysVisible(prev => !prev);
   };
 
   const handleStartMetronome = async () => {
@@ -363,40 +301,6 @@ export default function Home() {
       console.error('Failed to toggle auto-sync:', error);
     }
   }, [toggleAutoSync, timeMode, detectedBPM, bpm, setBPM]);
-
-  const handleTempoControl = useCallback((action: 'faster' | 'slower' | 'match') => {
-    const amount = 5;
-    let newBpm: number;
-    
-    switch (action) {
-      case 'faster':
-        newBpm = bpm + amount;
-        adjustBpm(amount);
-        break;
-      case 'slower':
-        newBpm = Math.max(bpm - amount, 60);
-        adjustBpm(-amount);
-        break;
-      case 'match':
-        if (detectedBPM) {
-          const diff = detectedBPM - bpm;
-          adjustBpm(diff);
-          newBpm = detectedBPM;
-        } else {
-          return;
-        }
-        break;
-      default:
-        return;
-    }
-    
-    // Update auto-sync if locked
-    if (isLocked) {
-      adjustTempo(action);
-    }
-    
-    console.log(`🎵 Tempo adjusted to ${newBpm} BPM`);
-  }, [bpm, adjustBpm, detectedBPM, isLocked, adjustTempo]);
 
   // Cleanup auto-sync on unmount
   useEffect(() => {

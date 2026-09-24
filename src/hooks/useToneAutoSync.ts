@@ -1,6 +1,24 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import * as Tone from 'tone';
 
+declare global {
+  interface Window {
+    webkitAudioContext?: typeof AudioContext;
+  }
+
+  interface HTMLVideoElement {
+    _connectedToAudioContext?: boolean;
+  }
+}
+
+type AnalysisCapableAnalyser = Tone.Analyser & {
+  getValue: () => Float32Array;
+};
+
+const getAudioContextConstructor = (): typeof AudioContext => {
+  return window.AudioContext ?? window.webkitAudioContext ?? AudioContext;
+};
+
 interface SyncReference {
   bpm: number;
   beat: number;
@@ -96,6 +114,7 @@ export const useToneAutoSync = () => {
 
   // Advanced BPM detection using Tone.js
   const detectBPMFromVideo = useCallback(async (videoElement?: HTMLVideoElement) => {
+    void videoElement;
     if (!analyserRef.current) {
       await initializeAudioAnalysis();
     }
@@ -252,18 +271,19 @@ export const useToneAutoSync = () => {
       // Create media element source if not exists
       if (!mediaElementRef.current && videoElement) {
         // Check if video element is already connected to avoid InvalidStateError
-        if ((videoElement as any)._connectedToAudioContext) {
+        if (videoElement._connectedToAudioContext) {
           console.log('Video element already connected to AudioContext, skipping connection');
           return true;
         }
 
         // Create a separate AudioContext for analysis to avoid Tone.js conflicts
-        const analysisContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+        const AudioContextConstructor = getAudioContextConstructor();
+        const analysisContext = new AudioContextConstructor();
         const mediaSource = analysisContext.createMediaElementSource(videoElement);
         const analysisAnalyser = analysisContext.createAnalyser();
         
         // Mark video element as connected
-        (videoElement as any)._connectedToAudioContext = true;
+        videoElement._connectedToAudioContext = true;
         
         // Configure the analysis analyser
         analysisAnalyser.fftSize = 2048;
@@ -277,8 +297,8 @@ export const useToneAutoSync = () => {
         mediaElementRef.current = mediaSource;
         
         // Replace Tone.js analyser with our analysis analyser for BPM detection
-        const originalGetValue = analyserRef.current.getValue;
-        (analyserRef.current as any).getValue = () => {
+        const analyser = analyserRef.current as AnalysisCapableAnalyser;
+        analyser.getValue = () => {
           const dataArray = new Uint8Array(analysisAnalyser.frequencyBinCount);
           analysisAnalyser.getByteFrequencyData(dataArray);
           // Convert to Float32Array to match Tone.js expectations
@@ -428,8 +448,8 @@ export const useToneAutoSync = () => {
         // Reset the connection flag if we have access to the video element
         const videoElements = document.querySelectorAll('video');
         videoElements.forEach(video => {
-          if ((video as any)._connectedToAudioContext) {
-            delete (video as any)._connectedToAudioContext;
+          if (video._connectedToAudioContext) {
+            delete video._connectedToAudioContext;
           }
         });
       } catch (error) {

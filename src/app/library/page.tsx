@@ -1,6 +1,7 @@
 'use client';
 
 import { createClient, type RealtimePostgresChangesPayload, type SupabaseClient } from '@supabase/supabase-js';
+import Image from 'next/image';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { extractVideoId } from '@/utils/youtubeUtils';
 import Header from '@/components/Header/Header';
@@ -76,6 +77,8 @@ interface YTNamespace {
   Player: new (
     element: string | HTMLElement,
     options: {
+      height?: string;
+      width?: string;
       videoId: string;
       playerVars?: Record<string, number | string>;
       events?: {
@@ -89,8 +92,7 @@ interface YTNamespace {
 
 declare global {
   interface Window {
-    YT?: YTNamespace;
-    onYouTubeIframeAPIReady?: () => void;
+    onYouTubeIframeAPIReady: (() => void) | null;
   }
 }
 
@@ -149,6 +151,78 @@ const fmtAdded = (timestamp: number): string => {
 
 const thumbFallback1 = (id: string) => `https://i.ytimg.com/vi/${id}/mqdefault.jpg`;
 
+function LibraryThumbnail({
+  src,
+  fallbackId,
+  alt,
+  className,
+  fill = false,
+  width,
+  height,
+  priority = false,
+}: {
+  src: string;
+  fallbackId: string;
+  alt: string;
+  className: string;
+  fill?: boolean;
+  width?: number;
+  height?: number;
+  priority?: boolean;
+}) {
+  const [currentSrc, setCurrentSrc] = useState(src);
+  const [fallbackStage, setFallbackStage] = useState(0);
+
+  useEffect(() => {
+    setCurrentSrc(src);
+    setFallbackStage(0);
+  }, [src]);
+
+  const handleError = useCallback(() => {
+    if (fallbackStage === 0) {
+      setCurrentSrc(thumbFallback1(fallbackId));
+      setFallbackStage(1);
+      return;
+    }
+
+    if (fallbackStage === 1) {
+      setCurrentSrc(THUMB_FALLBACK_2);
+      setFallbackStage(2);
+    }
+  }, [fallbackId, fallbackStage]);
+
+  if (fill) {
+    return (
+      <Image
+        fill
+        unoptimized
+        alt={alt}
+        className={className}
+        priority={priority}
+        referrerPolicy="no-referrer"
+        sizes="(max-width: 768px) 100vw, 560px"
+        src={currentSrc}
+        onError={handleError}
+      />
+    );
+  }
+
+  return (
+    <Image
+      unoptimized
+      alt={alt}
+      className={className}
+      height={height ?? 54}
+      priority={priority}
+      referrerPolicy="no-referrer"
+      sizes="96px"
+      src={currentSrc}
+      width={width ?? 96}
+      onError={handleError}
+    />
+  );
+}
+
 const loadYT = async (): Promise<YTNamespace> => {
   if (ytLoaderPromise) return ytLoaderPromise;
   ytLoaderPromise = new Promise((resolve, reject) => {
@@ -157,13 +231,13 @@ const loadYT = async (): Promise<YTNamespace> => {
       return;
     }
     if (window.YT?.Player) {
-      resolve(window.YT);
+      resolve(window.YT as unknown as YTNamespace);
       return;
     }
     const previous = window.onYouTubeIframeAPIReady;
     window.onYouTubeIframeAPIReady = () => {
       previous?.();
-      if (window.YT) resolve(window.YT);
+      if (window.YT) resolve(window.YT as unknown as YTNamespace);
     };
     const script = document.createElement('script');
     script.src = 'https://www.youtube.com/iframe_api';
@@ -206,6 +280,7 @@ export default function LibraryPage() {
   const playerHostRef = useRef<HTMLDivElement | null>(null);
   const playerRef = useRef<YTPlayer | null>(null);
   const loopTimerRef = useRef<number | null>(null);
+  const playerInitTimerRef = useRef<number | null>(null);
 
   const loopCountMap = useMemo(() => {
     const counts = new Map<string, number>();
@@ -437,17 +512,28 @@ export default function LibraryPage() {
 
   useEffect(() => {
     if (!drawerOpen || !selectedVideo) return;
-    const run = async () => {
+    let cancelled = false;
+
+    const initializePlayer = async () => {
       const YT = await loadYT();
-      if (!playerHostRef.current) return;
+      if (cancelled || !playerHostRef.current) return;
+
       const createPlayer = () => {
-        const host = playerHostRef.current as HTMLElement;
-        host.innerHTML = '';
+        if (!playerHostRef.current) return;
+        const host = playerHostRef.current;
+        host.replaceChildren();
+
         const mountNode = document.createElement('div');
-        mountNode.className = 'h-full w-full';
+        mountNode.className = 'absolute inset-0 h-full w-full';
+        mountNode.style.position = 'absolute';
+        mountNode.style.inset = '0';
+        mountNode.style.width = '100%';
+        mountNode.style.height = '100%';
         host.appendChild(mountNode);
 
         playerRef.current = new YT.Player(mountNode, {
+          height: '100%',
+          width: '100%',
           videoId: selectedVideo.youtubeId,
           playerVars: { rel: 0, modestbranding: 1, playsinline: 1 },
           events: {
@@ -469,7 +555,8 @@ export default function LibraryPage() {
         return;
       }
 
-      const hasLoadVideoById = typeof (playerRef.current as unknown as { loadVideoById?: unknown }).loadVideoById === 'function';
+      const hasLoadVideoById =
+        typeof (playerRef.current as unknown as { loadVideoById?: unknown }).loadVideoById === 'function';
       if (!hasLoadVideoById) {
         playerRef.current.destroy?.();
         playerRef.current = null;
@@ -483,14 +570,27 @@ export default function LibraryPage() {
       }
     };
 
-    run().catch((error) => {
-      console.error('Failed to initialize YouTube player:', error);
-      showToast('Could not initialize video player.');
-    });
+    playerInitTimerRef.current = window.setTimeout(() => {
+      void initializePlayer().catch((error) => {
+        console.error('Failed to initialize YouTube player:', error);
+        showToast('Could not initialize video player.');
+      });
+    }, 320);
+
+    return () => {
+      cancelled = true;
+      if (playerInitTimerRef.current !== null) {
+        window.clearTimeout(playerInitTimerRef.current);
+        playerInitTimerRef.current = null;
+      }
+    };
   }, [applyDuration, drawerOpen, selectedVideo, showToast, stopLoop]);
 
   useEffect(() => {
     return () => {
+      if (playerInitTimerRef.current !== null) {
+        window.clearTimeout(playerInitTimerRef.current);
+      }
       if (loopTimerRef.current !== null) {
         window.clearInterval(loopTimerRef.current);
       }
@@ -888,23 +988,13 @@ export default function LibraryPage() {
                     >
                       <td className="px-3.5 py-2.5 align-middle">
                         <button onClick={() => void openVideo(video.id)} className="block">
-                          <img
-                            className="block h-[54px] w-[96px] rounded-lg border border-Separator bg-Separator/40 object-cover"
-                            referrerPolicy="no-referrer"
-                            src={video.thumbnail}
+                          <LibraryThumbnail
                             alt=""
-                            data-fallback-stage="0"
-                            onError={(event) => {
-                              const target = event.currentTarget;
-                              const stage = target.dataset.fallbackStage ?? '0';
-                              if (stage === '0') {
-                                target.dataset.fallbackStage = '1';
-                                target.src = thumbFallback1(video.youtubeId);
-                              } else if (stage === '1') {
-                                target.dataset.fallbackStage = '2';
-                                target.src = THUMB_FALLBACK_2;
-                              }
-                            }}
+                            className="block h-[54px] w-[96px] rounded-lg border border-Separator bg-Separator/40 object-cover"
+                            fallbackId={video.youtubeId}
+                            src={video.thumbnail}
+                            width={96}
+                            height={54}
                           />
                         </button>
                       </td>
@@ -1043,10 +1133,12 @@ export default function LibraryPage() {
 
           <div className="relative mb-4 aspect-video w-full overflow-hidden rounded-xl border border-Separator bg-Navbar">
             {selectedVideo && (
-              <img
+              <LibraryThumbnail
                 alt=""
                 className="pointer-events-none absolute inset-0 h-full w-full object-cover opacity-60"
-                referrerPolicy="no-referrer"
+                fallbackId={selectedVideo.youtubeId}
+                fill
+                priority
                 src={selectedVideo.thumbnail}
               />
             )}

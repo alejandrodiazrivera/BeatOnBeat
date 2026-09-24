@@ -2,120 +2,256 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Custom scrollbar with brand colors */
-::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+@layer base {
+  :root {
+    --bg: #ffffff;
+    --bg-muted: #fafafa;
+    --border: #e5e5e5;
+    --border-strong: #333333;
+    --ink: #000000;
+    --ink-muted: #666666;
+    --ink-faint: #999999;
+  }
+
+  html {
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
+      "Helvetica Neue", Arial, sans-serif;
+    font-size: 14px;
+    line-height: 1.5;
+  }
+
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+
+  .time-display {
+    font-family: "Courier New", "Monaco", "Menlo", monospace;
+    letter-spacing: 0.5px;
+  }
 }
 
-::-webkit-scrollbar-track {
-  background: #F9FAFB;
-}
+@layer components {
+  .ds-card {
+    @apply rounded-2xl border border-Separator bg-white;
+  }
 
-::-webkit-scrollbar-thumb {
-  background: gray;
-  border-radius: 4px;
-}
+  .ds-panel {
+    @apply rounded-xl border border-Separator bg-white;
+  }
 
-::-webkit-scrollbar-thumb:hover {
-  background: #000000;
-}
+  .ds-video-frame {
+    @apply overflow-hidden rounded-xl border border-Separator bg-Navbar;
+  }
 
-/* Smooth transitions */
-* {
-  transition: background-color 0.2s, border-color 0.2s, box-shadow 0.2s;
+  .ds-stat {
+    @apply rounded-xl border border-Separator bg-white px-3.5 py-3;
+  }
+
+  .ds-stat__label {
+    @apply text-[10px] font-bold uppercase tracking-[0.08em] text-TextXl;
+  }
+
+  .ds-stat__value {
+    @apply mt-1 text-sm font-semibold text-Title;
+  }
+
+  .ds-eyebrow {
+    @apply text-[11px] font-medium uppercase tracking-[0.18em] text-TextL;
+  }
+
+  .ds-heading {
+    @apply text-2xl font-semibold tracking-tight text-Title sm:text-3xl;
+  }
+
+  .ds-subheading {
+    @apply text-sm font-semibold text-Text;
+  }
+
+  .ds-body {
+    @apply text-sm leading-relaxed text-TextSm;
+  }
+
+  .ds-meta {
+    @apply text-xs text-TextL;
+  }
+
+  .ds-btn-primary {
+    @apply inline-flex items-center gap-2 rounded-lg bg-Navbar px-4 py-2.5
+      text-sm font-semibold text-Save transition-colors
+      hover:bg-Borders
+      disabled:cursor-not-allowed disabled:opacity-40
+      disabled:hover:bg-Navbar;
+  }
+
+  .ds-btn-secondary {
+    @apply inline-flex items-center gap-2 rounded-lg border border-Borders bg-white
+      px-3.5 py-2.5 text-sm font-medium text-Text transition-colors
+      hover:border-Navbar hover:text-Title
+      disabled:cursor-not-allowed disabled:opacity-40
+      disabled:hover:border-Borders disabled:hover:text-Text;
+  }
+
+  .ds-btn-ghost {
+    @apply inline-flex items-center gap-2 rounded-lg px-3 py-2
+      text-sm font-medium text-TextL transition-colors
+      hover:bg-Separator hover:text-Text;
+  }
+
+  .ds-btn-icon {
+    @apply grid h-9 w-9 place-items-center rounded-lg border border-Borders
+      bg-white text-Text transition-colors
+      hover:border-Navbar
+      disabled:cursor-not-allowed disabled:opacity-30
+      disabled:hover:border-Borders;
+  }
+
+  .ds-btn-icon[data-active="true"] {
+    @apply border-Navbar bg-Navbar text-Save hover:border-Navbar;
+  }
+
+  .ds-btn-pill {
+    @apply inline-flex h-9 items-center gap-2 rounded-lg border border-Borders
+      bg-white px-3 text-xs font-medium text-Text transition-colors
+      hover:border-Navbar
+      disabled:cursor-not-allowed disabled:opacity-40;
+  }
+
+  .ds-btn-pill[data-active="true"] {
+    @apply border-Navbar bg-Navbar text-Save hover:border-Navbar;
+  }
+
+  .ds-input {
+    @apply w-full rounded-lg border border-Borders bg-white px-3 py-3
+      text-sm text-Text outline-none transition
+      placeholder:text-TextXl
+      focus:border-Navbar;
+  }
+
+  .ds-input-row {
+    @apply flex items-center gap-2 rounded-xl border border-Borders bg-white
+      py-1.5 pl-3.5 pr-1.5 transition
+      focus-within:ring-2 focus-within:ring-Navbar/10;
+  }
+
+  .ds-input-row__field {
+    @apply min-w-0 flex-1 bg-transparent py-2 text-sm text-Text outline-none
+      placeholder:text-TextXl;
+  }
+
+  .ds-input-row__button {
+    @apply shrink-0 rounded-lg bg-Navbar px-4 py-2 text-sm font-semibold
+      text-Save transition-colors hover:bg-Borders;
+  }
+
+  .ds-divider-v {
+    @apply mx-1 h-6 w-px bg-Separator;
+  }
+
+  .ds-divider-h {
+    @apply border-t border-Separator;
+  }
+
+  .ds-chip {
+    @apply inline-flex items-center gap-2 rounded-full border border-Separator
+      px-3 py-1 text-[11px] font-medium uppercase tracking-[0.14em]
+      text-TextL;
+  }
+
+  .ds-row {
+    @apply flex items-center justify-between rounded-lg border border-Separator
+      bg-white px-3 py-2 transition-colors hover:border-Borders;
+  }
+
+  .ds-row__title {
+    @apply text-xs font-medium text-Text;
+  }
+
+  .ds-row__meta {
+    @apply text-[11px] tabular-nums text-TextL;
+  }
+
+  .ds-modal-backdrop {
+    @apply fixed inset-0 z-40 flex items-center justify-center
+      bg-Navbar/50 px-4 backdrop-blur-sm;
+  }
+
+  .ds-modal {
+    @apply w-full max-w-md rounded-2xl border border-Separator bg-white
+      p-6 shadow-xl;
+  }
+
+  .ds-modal__title {
+    @apply text-xl font-semibold tracking-tight text-Title;
+  }
+
+  .ds-modal__body {
+    @apply mt-2 text-sm text-TextL;
+  }
+
+  .ds-drawer {
+    @apply fixed right-0 top-0 z-50 h-full w-[min(420px,100%)] overflow-y-auto
+      border-l border-Separator bg-white
+      transition-transform duration-300 ease-out;
+  }
+
+  .ds-drawer[data-open="false"] {
+    transform: translateX(100%);
+  }
+
+  .ds-drawer[data-open="true"] {
+    transform: translateX(0);
+  }
+
+  .ds-drawer__header {
+    @apply mb-3.5 flex items-center justify-between;
+  }
+
+  .ds-drawer__eyebrow {
+    @apply text-[11px] font-bold uppercase tracking-[0.1em] text-TextXl;
+  }
+
+  .ds-drawer__close {
+    @apply grid h-8 w-8 place-items-center rounded-lg border border-Separator
+      bg-white text-TextL transition
+      hover:border-Borders hover:text-Text;
+  }
+
+  .ds-band-dark {
+    @apply bg-Navbar;
+  }
+
+  .ds-band-dark .ds-eyebrow {
+    @apply text-TextL;
+  }
+
+  .ds-band-dark h2 {
+    @apply text-white;
+  }
+
+  .ds-band-dark h3 {
+    @apply text-white;
+  }
+
+  .ds-band-dark p {
+    @apply text-TextXl;
+  }
+
+  .ds-band-dark .ds-divider-v {
+    @apply bg-Borders;
+  }
 }
 
 .mirror-video {
   transform: scaleX(-1);
 }
 
-.loop-mode-wrapper {
-  position: relative;
-  isolation: isolate;
-  overflow: hidden;
-  padding: 2px;
-  border: 0;
-  border-radius: 8px;
-  background: #2a2a2a;
-}
-
-.loop-mode-wrapper::before {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  z-index: -1;
-  width: 220%;
-  aspect-ratio: 1;
-  content: '';
-  background: conic-gradient(transparent 0deg 300deg, var(--loop-accent) 300deg 360deg);
-  opacity: 0;
-  transform: translate(-50%, -50%);
-  transition: opacity 0.4s ease;
-}
-
-.loop-mode-wrapper--activated {
-  --loop-accent: #9966cb;
-  background: var(--loop-accent);
-  box-shadow: 0 0 18px -3px var(--loop-accent);
-}
-
-.loop-mode-wrapper--active {
-  --loop-accent: #9966cb;
-}
-
-.loop-mode-wrapper--active::before {
-  opacity: 1;
-  animation: loop-mode-spin 7s linear infinite;
-}
-
-.loop-mode-button {
-  position: relative;
-  z-index: 1;
-  display: block;
-  padding: 0.5rem 0.75rem;
-  border-radius: 6px;
-  background: #1a1a1a;
-  color: #f5f5f5;
-  font-size: 0.875rem;
-  font-weight: 500;
-}
-
-.loop-mode-button:hover {
-  background: #292929;
-}
-
-.loop-mode-button:active {
-  background: #111111;
-}
-
-.loop-mode-wrapper:focus-visible {
-  outline: 2px solid #9966cb;
-  outline-offset: 4px;
-}
-
-@keyframes loop-mode-spin {
-  to {
-    transform: translate(-50%, -50%) rotate(360deg);
-  }
-}
-
-/* Focus styles with brand colors */
-input:focus, textarea:focus, select:focus {
-  @apply outline-none ring-2 border-2;
-  --tw-ring-color: red;
-  border-color: #9966cb;
-}
-
-/* Monospace font for time inputs */
-input[placeholder*="MM:SS"], 
-input[placeholder*="time"],
-.time-display {
-  font-family: 'Courier New', 'Monaco', 'Menlo', monospace;
-  letter-spacing: 0.5px;
-}
-
-/* Add to your global CSS */
 .loader-container {
   width: 100px;
   height: 100px;
@@ -159,14 +295,19 @@ input[placeholder*="time"],
     background-position: 0% 0;
     transform: translate(-15px, -50%);
   }
-  15%, 25% {
+
+  15%,
+  25% {
     background-position: 0% 0;
     transform: translate(0px, -50%);
   }
-  75%, 85% {
+
+  75%,
+  85% {
     background-position: 100% 0;
     transform: translate(50px, -50%);
   }
+
   100% {
     background-position: 100% 0;
     transform: translate(65px, -50%);

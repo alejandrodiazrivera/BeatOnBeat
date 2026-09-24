@@ -14,74 +14,68 @@ interface CueListProps {
 const CueList: FC<CueListProps> = ({ cuePoints, onEdit, onDelete, onJump, onLoop = () => {} }) => {
   if (cuePoints.length === 0) {
     return (
-      <div className="bg-white rounded-xl shadow-lg border-2 border-Borders p-6 lg:p-4 mb-6">
-        <h3 className="text-xl lg:text-lg font-semibold mb-4 lg:mb-3 text-Title">Saved Loops</h3>
-        <div className="text-Text italic">No saved loops yet</div>
+      <div className="rounded-2xl border border-Separator bg-white p-5">
+        <h3 className="text-lg font-semibold tracking-tight text-Title">Saved loops</h3>
+        <div className="mt-2 text-sm italic text-TextL">No saved loops yet.</div>
       </div>
     );
   }
 
   return (
-    <div className="bg-white rounded-xl shadow-lg border-2 border-Borders p-6 lg:p-4 mb-6">
-      <h3 className="text-xl lg:text-lg font-semibold mb-4 lg:mb-3 text-Title">Saved Loops</h3>
-      <div className="relative">
+    <div className="rounded-2xl border border-Separator bg-white">
+      <div className="border-b border-Separator bg-Separator/25 px-4 py-3">
+        <h3 className="text-lg font-semibold tracking-tight text-Title">Saved loops</h3>
+        <p className="mt-1 text-sm text-TextL">Jump back into a saved practice section or edit its label.</p>
+      </div>
+      <div className="relative px-4 py-3">
         <div 
           className="overflow-y-auto"
-          style={{ height: '450px' }} // Fixed height to show 3 items
+          style={{ height: '450px' }}
         >
-          <div className="space-y-4 lg:space-y-3">
+          <div className="space-y-2.5">
             {cuePoints.map((cue, index) => (
-              <div key={cue.id} className="border-b-2 border-CueDivider pb-4 lg:pb-3 last:border-b-0">
-                <div className="flex flex-col gap-4 lg:flex-row lg:flex-nowrap lg:items-center lg:gap-2">
-                  {/* Ordinal Number & Timestamp Column - Takes 4 columns on desktop */}
-                  <div className="min-w-0 lg:flex-none">
-                    <h4 className="text-sm font-medium mb-1 text-Title"></h4>
-                    <div className="flex items-center">
-                      <span className="text-l lg:text-sm font-bold text-Numeration mr-3 lg:mr-2 min-w-[2rem] lg:min-w-[1.5rem]">
+              <div key={cue.id} className="rounded-xl border border-Separator bg-white px-3.5 py-3 transition hover:border-Borders hover:bg-Separator/20">
+                <div className="flex flex-col gap-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="inline-flex min-w-[26px] items-center justify-center rounded-full border border-Separator bg-Separator/40 px-2 py-0.5 text-[11.5px] font-bold text-TextXl">
                         {index + 1}.
-                      </span>
-                      <div className="min-w-0 text-sm lg:text-xs">
-                        <strong className="block whitespace-nowrap text-Time time-display">
+                        </span>
+                        <strong className="block whitespace-nowrap text-[13px] font-semibold text-Title time-display">
                           {cue.endTime ? `${cue.time} - ${cue.endTime}` : cue.time}
                         </strong>
                       </div>
+                      <h4 className="mt-2 truncate text-sm font-semibold text-Title" title={cue.title}>{cue.title}</h4>
                     </div>
-                  </div>
-
-                  {/* Notes Column - Takes 5 columns on desktop */}
-                  <div className="min-w-0 lg:flex-1">
-                    <h4 className="truncate whitespace-nowrap text-sm lg:text-xs font-medium mb-1 text-Title" title={cue.title}>{cue.title}</h4>
-                  </div>
-
-                  {/* Actions Column - Takes 3 columns on desktop */}
-                  <div className="min-w-0 lg:flex-none">
-                    <h4 className="text-sm font-medium mb-1 text-Title"></h4>
-                    <div className="flex flex-nowrap justify-end gap-2 lg:gap-1">
+                    <div className="flex flex-nowrap justify-end gap-2">
                       <button
                         onClick={() => cue.endTime ? onLoop(cue) : onJump(cue.time)}
-                        className="bg-JumpTo hover:bg-Pause text-black hover:text-JumpToTextHover w-8 h-8 lg:w-7 lg:h-7 rounded flex items-center justify-center transition-colors duration-200"
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-Separator bg-white text-Text transition hover:border-Borders hover:bg-Separator hover:text-Title"
                         title={cue.endTime ? 'Loop practice section' : 'Jump to timestamp'}
                       >
-                        <Play className="w-5 h-5 lg:w-4 lg:h-4" />
+                        <Play className="h-4 w-4" />
                       </button>
                       {!cue.endTime && (
                         <button
                           onClick={() => onEdit(cue)}
-                          className="bg-Edit hover:bg-Metronome text-white w-8 h-8 lg:w-7 lg:h-7 rounded flex items-center justify-center transition-colors duration-200"
+                          className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-Separator bg-white text-Text transition hover:border-Borders hover:bg-Separator hover:text-Title"
                           title="Edit cue"
                         >
-                          <Pencil className="w-5 h-5 lg:w-4 lg:h-4" />
+                          <Pencil className="h-4 w-4" />
                         </button>
                       )}
                       <button
                         onClick={() => onDelete(cue.id)}
-                        className="bg-DeleteCue hover:bg-Pause active:bg-Stop active:scale-95 text-white w-8 h-8 lg:w-7 lg:h-7 rounded flex items-center justify-center transition duration-200"
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-Separator bg-white text-Text transition hover:border-Borders hover:bg-Separator hover:text-DeleteCue"
                         title="Delete cue"
                       >
                         ✕
                       </button>
                     </div>
                   </div>
+
+                  {cue.note ? <p className="text-sm text-TextL">{cue.note}</p> : null}
                 </div>
               </div>
             ))}
