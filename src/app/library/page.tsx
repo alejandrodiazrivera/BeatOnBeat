@@ -2,10 +2,11 @@
 
 import { createClient, type RealtimePostgresChangesPayload, type SupabaseClient } from '@supabase/supabase-js';
 import Image from 'next/image';
+import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { extractVideoId } from '@/utils/youtubeUtils';
-import Header from '@/components/Header/Header';
-import Footer from '@/components/Footer/Footer';
+import AppHeader from '@/components/AppHeader';
+import AppFooter from '@/components/AppFooter';
 
 type VideoRow = {
   id: string;
@@ -68,6 +69,7 @@ interface YTPlayer {
   playVideo: () => void;
   seekTo: (seconds: number, allowSeekAhead: boolean) => void;
   loadVideoById: (videoId: string) => void;
+  cueVideoById?: (videoId: string) => void;
   getCurrentTime: () => number;
   getDuration: () => number;
   getVideoData?: () => { video_id: string };
@@ -248,6 +250,7 @@ const loadYT = async (): Promise<YTNamespace> => {
 };
 
 export default function LibraryPage() {
+  const router = useRouter();
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   const supabase: SupabaseClient | null = useMemo(() => {
@@ -538,9 +541,10 @@ export default function LibraryPage() {
           height: '100%',
           width: '100%',
           videoId: selectedVideo.youtubeId,
-          playerVars: { rel: 0, modestbranding: 1, playsinline: 1 },
+          playerVars: { autoplay: 0, rel: 0, modestbranding: 1, playsinline: 1 },
           events: {
             onReady: (event) => {
+              event.target.pauseVideo();
               const d = event.target.getDuration();
               if (Number.isFinite(d) && d > 0) {
                 void applyDuration(selectedVideo.id, d);
@@ -569,7 +573,13 @@ export default function LibraryPage() {
 
       const current = playerRef.current.getVideoData?.().video_id;
       if (current !== selectedVideo.youtubeId) {
-        playerRef.current.loadVideoById(selectedVideo.youtubeId);
+        if (typeof playerRef.current.cueVideoById === 'function') {
+          playerRef.current.cueVideoById(selectedVideo.youtubeId);
+        } else {
+          playerRef.current.loadVideoById(selectedVideo.youtubeId);
+          playerRef.current.pauseVideo();
+          playerRef.current.seekTo(0, true);
+        }
       }
     };
 
@@ -627,6 +637,22 @@ export default function LibraryPage() {
       playerRef.current.pauseVideo();
     }
   }, [stopLoop]);
+
+  const openLoopWorkspace = useCallback(
+    (loop: LibraryLoop) => {
+      if (!selectedVideo) return;
+
+      const params = new URLSearchParams({
+        youtubeId: selectedVideo.youtubeId,
+        libraryVideoId: selectedVideo.id,
+        loopId: loop.id,
+        openSavedLoops: '1',
+      });
+
+      router.push(`/loop?${params.toString()}`);
+    },
+    [router, selectedVideo]
+  );
 
   const playLoop = useCallback(
     (loop: LibraryLoop) => {
@@ -835,9 +861,9 @@ export default function LibraryPage() {
 
   return (
     <div className="min-h-screen bg-white text-Text antialiased">
-      <Header />
+      <AppHeader />
 
-      <main className="px-4 pt-24">
+      <main className="px-4 pt-8">
         <div className="mx-auto max-w-[1220px] pb-24 pt-7">
           <div className="mb-5">
             <h1 className="text-[22px] font-semibold text-Title">Communal Library</h1>
@@ -1111,7 +1137,7 @@ export default function LibraryPage() {
         </div>
       </main>
 
-      <Footer />
+      <AppFooter />
 
       <div
         className={`fixed inset-0 z-40 bg-Navbar/50 backdrop-blur-sm transition-opacity duration-300 ${drawerOpen ? 'opacity-100 pointer-events-auto' : 'pointer-events-none opacity-0'}`}
@@ -1196,6 +1222,15 @@ export default function LibraryPage() {
                         ? 'border-Navbar bg-Navbar/[0.03]'
                         : 'border-Separator bg-white hover:border-Borders'
                     }`}
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => openLoopWorkspace(loop)}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault();
+                        openLoopWorkspace(loop);
+                      }
+                    }}
                   >
                     <div className="flex items-baseline justify-between gap-3">
                       <span className="text-[14.5px] font-semibold text-Text">{loop.name}</span>
@@ -1213,7 +1248,8 @@ export default function LibraryPage() {
                     )}
                     <button
                       className="rounded-lg border border-Navbar bg-Navbar px-2.5 py-1.5 text-[12.5px] font-medium text-Save transition hover:bg-Borders"
-                      onClick={() => {
+                      onClick={(event) => {
+                        event.stopPropagation();
                         if (playing) stopLoop();
                         else playLoop(loop);
                       }}

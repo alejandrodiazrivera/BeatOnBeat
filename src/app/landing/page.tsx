@@ -1,5 +1,6 @@
-import Image from "next/image";
 import Link from "next/link";
+import AppHeader from '@/components/AppHeader';
+import AppFooter from '@/components/AppFooter';
 
 export const metadata = {
   title: "ChoreoLab — Learn choreography one loop at a time",
@@ -10,36 +11,7 @@ export const metadata = {
 export default function LandingPage() {
   return (
     <main className="min-h-screen bg-white text-Text antialiased">
-      {/* Nav */}
-      <header className="sticky top-0 z-50 border-b border-Borders bg-Navbar">
-        <nav className="mx-auto flex h-16 max-w-6xl items-center justify-between px-6">
-          <Link href="/" className="flex items-center gap-2.5">
-            <Image
-              src="/LogoInv.png"
-              alt="ChoreoLab Logo"
-              width={60}
-              height={60}
-              className="h-10 w-10 rounded-md object-contain"
-              priority
-            />
-            <span className="text-base font-semibold tracking-tight text-white">
-              ChoreoLab
-            </span>
-          </Link>
-
-          <div className="flex items-center gap-2 sm:gap-4">
-            <Link
-              href="/library"
-              className="hidden text-sm text-TextXl transition-colors hover:text-white sm:inline"
-            >
-              Library
-            </Link>
-            <Link href="/loop" className="ds-btn-primary bg-white text-Navbar hover:bg-LayersToggle hover:text-Navbar">
-              Open app
-            </Link>
-          </div>
-        </nav>
-      </header>
+      <AppHeader />
 
       {/* Hero */}
       <section className="border-b border-Separator">
@@ -47,7 +19,7 @@ export default function LandingPage() {
           <div>
             <span className="ds-chip">
               <RepeatGlyph />
-              Practice tool
+              Loop Editor
             </span>
 
             <h1 className="mt-6 text-4xl font-semibold leading-[1.1] tracking-tight sm:text-5xl lg:text-6xl">
@@ -81,20 +53,20 @@ export default function LandingPage() {
           </div>
 
           {/* Mock preview — same markup as the HTML version, converted to JSX */}
-          <div className="rounded-2xl border border-Separator bg-[#fafafa] p-4 sm:p-5">
+          <div className="min-w-0 overflow-hidden rounded-2xl border border-Separator bg-[#fafafa] p-4 sm:p-5">
             <div className="mb-4">
-              <h2 className="text-[17px] font-semibold text-Title">Loop Workspace</h2>
+              <h2 className="text-[17px] font-semibold text-Title">Loop Editor</h2>
             </div>
 
             {/* URL row */}
             <div className="mb-4 flex flex-wrap items-center gap-2.5">
-              <div className="ds-input-row min-w-0 flex-1 basis-[300px]">
+              <div className="ds-input-row min-w-0 w-full flex-1 basis-full sm:basis-[300px]">
                 <span className="ds-input-row__field truncate text-TextXl">
                   https://youtube.com/watch?v=dQw4w…
                 </span>
                 <span className="ds-input-row__button">Load</span>
               </div>
-              <span className="ds-btn-secondary h-[43px]">
+              <span className="ds-btn-secondary h-[43px] w-full justify-center sm:w-auto">
                 <UploadGlyph />
                 Choose file
               </span>
@@ -268,28 +240,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* Footer */}
-      <footer className="border-t border-Separator">
-        <div className="mx-auto flex max-w-6xl flex-col items-start justify-between gap-6 px-6 py-10 sm:flex-row sm:items-center">
-          <div className="flex items-center gap-2.5">
-            <Image
-              src="/Logo.png"
-              alt="ChoreoLab Logo"
-              width={28}
-              height={28}
-              className="h-7 w-7 rounded-md object-contain"
-            />
-            <span className="text-sm font-medium">ChoreoLab</span>
-          </div>
-
-          <nav className="flex items-center gap-6 text-sm text-TextL">
-            <Link href="/loop" className="transition-colors hover:text-Text">Practice</Link>
-            <Link href="/library"  className="transition-colors hover:text-Text">Library</Link>
-          </nav>
-
-          <p className="text-xs text-TextL">Client-side · no account required</p>
-        </div>
-      </footer>
+      <AppFooter />
     </main>
   );
 }

@@ -88,7 +88,7 @@ const Header = () => {
               Library
             </a>
             <a href="/loop" className={`font-medium transition-colors duration-400 ${isScrolled ? 'text-[black] hover:text-[#f0807f]' : 'text-black hover:text-[#f0807f]'}`}>
-              Loop Workspace
+              Loop Editor
             </a>
             <a href="/contact" className={`font-medium transition-colors duration-400 ${isScrolled ? 'text-[black] hover:text-[#f0807f]' : 'text-black hover:text-[#f0807f]'}`}>
               Contact
@@ -162,7 +162,7 @@ const Header = () => {
                 className="text-black hover:text-[#f0807f] font-medium py-2 transition-colors duration-200"
                 onClick={closeMobileMenu}
               >
-                Loop Workspace
+                Loop Editor
               </a>
               <a 
                 href="/contact" 

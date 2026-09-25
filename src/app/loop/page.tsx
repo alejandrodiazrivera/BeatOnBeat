@@ -2,6 +2,7 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { PanelRightClose } from 'lucide-react';
+import { useSearchParams } from 'next/navigation';
 import { CuePoint } from '../../types/types';
 import { extractVideoId } from '../../utils/youtubeUtils';
 
@@ -20,8 +21,8 @@ import VideoPlayer from '../../components/VideoPlayer';
 import VideoControls from '../../components/VideoControls';
 import CueForm from '../../components/CueForm';
 import CueList from '../../components/CueList';
-import Header from '../../components/Header/Header';
-import Footer from '../../components/Footer/Footer';
+import AppHeader from '../../components/AppHeader';
+import AppFooter from '../../components/AppFooter';
 
 const formatPracticeTime = (timeInSeconds: number): string => {
   const minutes = Math.floor(timeInSeconds / 60).toString().padStart(2, '0');
@@ -30,6 +31,7 @@ const formatPracticeTime = (timeInSeconds: number): string => {
 };
 
 export default function LoopPage() {
+  const searchParams = useSearchParams();
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   const supabase: SupabaseClient | null = useMemo(() => {
@@ -58,6 +60,7 @@ export default function LoopPage() {
   const videoFileInputRef = useRef<HTMLInputElement>(null);
   const resumeAfterSaveRef = useRef(false);
   const ignorePauseUntilRef = useRef(0);
+  const processedDeepLinkRef = useRef<string | null>(null);
   // Removed unused videoFile state
 
   const fetchVideoMeta = useCallback(async (youtubeId: string) => {
@@ -141,7 +144,7 @@ export default function LoopPage() {
     }
   }, [fetchVideoMeta, supabase]);
 
-  const loadLibraryLoops = useCallback(async (videoRowId: string) => {
+  const loadLibraryLoops = useCallback(async (videoRowId: string): Promise<CuePoint[]> => {
     if (!supabase) return;
 
     try {
@@ -169,23 +172,63 @@ export default function LoopPage() {
       }));
 
       setCuePoints(mapped);
+      return mapped;
     } catch (error) {
       console.error('Failed to load library loops for video:', error);
+      return [];
     }
   }, [supabase]);
+
+  const loadVideoSelection = useCallback(async (
+    youtubeId: string,
+    options?: {
+      libraryVideoRowId?: string | null;
+      openSavedLoops?: boolean;
+      loopId?: string | null;
+    }
+  ) => {
+    setVideoId(youtubeId);
+    setVideoUrl(`https://www.youtube.com/watch?v=${youtubeId}`);
+    startTimeTracking(true);
+    setCuePoints([]);
+    setCurrentCue(null);
+    setPracticeStart(null);
+    setPracticeEnd(null);
+    setIsLoopingPractice(false);
+    setLoopMode('inactive');
+
+    const linkedVideoId = options?.libraryVideoRowId ?? await registerVideoInLibrary(youtubeId);
+    setLibraryVideoId(linkedVideoId);
+
+    const loops = linkedVideoId ? await loadLibraryLoops(linkedVideoId) : [];
+
+    if (options?.openSavedLoops) {
+      setIsSavedLoopsOpen(true);
+    }
+
+    if (!options?.loopId) {
+      return;
+    }
+
+    const selectedLoop = loops.find((cue) => cue.id === options.loopId && cue.endTime);
+    if (!selectedLoop?.endTime) {
+      return;
+    }
+
+    const start = parseTimeToSeconds(selectedLoop.time);
+    const end = parseTimeToSeconds(selectedLoop.endTime);
+    currentTimeRef.current = start;
+    setCurrentTime(start);
+    setPracticeStart(start);
+    setPracticeEnd(end);
+    setIsLoopingPractice(true);
+    setLoopMode('active');
+  }, [loadLibraryLoops, registerVideoInLibrary]);
   
   const loadVideo = async () => {
     const id = extractVideoId(videoUrl);
     if (id) {
-      setVideoId(id);
-      startTimeTracking(true); // Reset time when loading new video
-      setCuePoints([]);
-
-      const linkedVideoId = await registerVideoInLibrary(id);
-      setLibraryVideoId(linkedVideoId);
-      if (linkedVideoId) {
-        await loadLibraryLoops(linkedVideoId);
-      }
+      await loadVideoSelection(id);
     } else {
       alert('Please enter a valid YouTube URL (videos or reels)');
     }
@@ -243,6 +286,29 @@ export default function LoopPage() {
 
     return () => window.clearTimeout(resumeTimer);
   }, [isSaveLoopDialogOpen]);
+
+  useEffect(() => {
+    const youtubeId = searchParams.get('youtubeId');
+    if (!youtubeId) {
+      return;
+    }
+
+    const libraryVideoRowId = searchParams.get('libraryVideoId');
+    const loopId = searchParams.get('loopId');
+    const openSavedLoops = searchParams.get('openSavedLoops') === '1';
+    const deepLinkSignature = `${youtubeId}:${libraryVideoRowId ?? ''}:${loopId ?? ''}:${openSavedLoops ? '1' : '0'}`;
+
+    if (processedDeepLinkRef.current === deepLinkSignature) {
+      return;
+    }
+
+    processedDeepLinkRef.current = deepLinkSignature;
+    void loadVideoSelection(youtubeId, {
+      libraryVideoRowId,
+      loopId,
+      openSavedLoops,
+    });
+  }, [loadVideoSelection, searchParams]);
 
   const handleSubmitCue = (cue: Omit<CuePoint, 'id'>) => {
     console.log('handleSubmitCue called with:', cue);
@@ -497,12 +563,12 @@ export default function LoopPage() {
 
   return (
     <div className="min-h-screen bg-white text-Text antialiased">
-      <Header />
+      <AppHeader />
       
-      <main className="px-4 pt-24">
+      <main className="px-4 pt-8">
         <div className="mx-auto max-w-[1220px] pb-24 pt-7">
           <div className="mb-5">
-            <h1 className="text-[22px] font-semibold text-Title">Loop Workspace</h1>
+            <h1 className="text-[22px] font-semibold text-Title">Loop Editor</h1>
           </div>
 
           <div className="mb-4 flex flex-wrap items-center gap-2.5">
@@ -784,7 +850,7 @@ export default function LoopPage() {
         </div>
       )}
       </main>
-      <Footer />
+      <AppFooter />
     </div>
   )
 }
