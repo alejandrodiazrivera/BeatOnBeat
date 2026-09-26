@@ -5,8 +5,8 @@ import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { extractVideoId } from '@/utils/youtubeUtils';
-import AppHeader from '@/components/AppHeader';
-import AppFooter from '@/components/AppFooter';
+import AppHeader from '@/components/Header/AppHeader';
+import AppFooter from '@/components/Header/AppFooter';
 
 type VideoRow = {
   id: string;
@@ -275,14 +275,12 @@ export default function LibraryPage() {
 
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [selectedVideoId, setSelectedVideoId] = useState<string | null>(null);
-  const [activeLoopId, setActiveLoopId] = useState<string | null>(null);
 
   const [toast, setToast] = useState<string | null>(null);
   const [flaggedThisSession, setFlaggedThisSession] = useState<Set<string>>(new Set());
 
   const playerHostRef = useRef<HTMLDivElement | null>(null);
   const playerRef = useRef<YTPlayer | null>(null);
-  const loopTimerRef = useRef<number | null>(null);
   const playerInitTimerRef = useRef<number | null>(null);
 
   const loopCountMap = useMemo(() => {
@@ -506,11 +504,6 @@ export default function LibraryPage() {
   );
 
   const stopLoop = useCallback(() => {
-    setActiveLoopId(null);
-    if (loopTimerRef.current !== null) {
-      window.clearInterval(loopTimerRef.current);
-      loopTimerRef.current = null;
-    }
     if (playerRef.current && typeof (playerRef.current as unknown as { pauseVideo?: unknown }).pauseVideo === 'function') {
       playerRef.current.pauseVideo();
     }
@@ -604,9 +597,6 @@ export default function LibraryPage() {
       if (playerInitTimerRef.current !== null) {
         window.clearTimeout(playerInitTimerRef.current);
       }
-      if (loopTimerRef.current !== null) {
-        window.clearInterval(loopTimerRef.current);
-      }
       playerRef.current?.destroy();
       playerRef.current = null;
     };
@@ -639,46 +629,22 @@ export default function LibraryPage() {
   }, [stopLoop]);
 
   const openLoopWorkspace = useCallback(
-    (loop: LibraryLoop) => {
+    (loop?: LibraryLoop) => {
       if (!selectedVideo) return;
 
       const params = new URLSearchParams({
         youtubeId: selectedVideo.youtubeId,
         libraryVideoId: selectedVideo.id,
-        loopId: loop.id,
-        openSavedLoops: '1',
       });
+
+      if (loop) {
+        params.set('loopId', loop.id);
+        params.set('openSavedLoops', '1');
+      }
 
       router.push(`/loop?${params.toString()}`);
     },
     [router, selectedVideo]
-  );
-
-  const playLoop = useCallback(
-    (loop: LibraryLoop) => {
-      if (
-        !playerRef.current ||
-        typeof (playerRef.current as unknown as { seekTo?: unknown }).seekTo !== 'function' ||
-        typeof (playerRef.current as unknown as { playVideo?: unknown }).playVideo !== 'function'
-      ) {
-        showToast('Player is still loading.');
-        return;
-      }
-      setActiveLoopId(loop.id);
-      playerRef.current.seekTo(loop.start, true);
-      playerRef.current.playVideo();
-      if (loopTimerRef.current !== null) {
-        window.clearInterval(loopTimerRef.current);
-      }
-      loopTimerRef.current = window.setInterval(() => {
-        if (!playerRef.current) return;
-        const currentTime = playerRef.current.getCurrentTime();
-        if (currentTime >= loop.end) {
-          playerRef.current.seekTo(loop.start, true);
-        }
-      }, 80);
-    },
-    [showToast]
   );
 
   const handleFlag = useCallback(
@@ -1205,10 +1171,19 @@ export default function LibraryPage() {
             {selectedLoops.length === 0 ? (
               <div className="rounded-xl border border-dashed border-Separator p-5 text-center text-[13.5px] text-TextXl">
                 No loops registered yet.
+                <div className="mt-3">
+                  <button
+                    type="button"
+                    onClick={() => openLoopWorkspace()}
+                    disabled={!selectedVideo}
+                    className="inline-flex items-center rounded-lg border border-Borders bg-white px-3 py-1.5 text-[13px] font-medium text-Text transition hover:border-Navbar hover:text-Title disabled:cursor-default disabled:opacity-50"
+                  >
+                    Open this video in Loop Editor
+                  </button>
+                </div>
               </div>
             ) : (
               selectedLoops.map((loop) => {
-                const playing = activeLoopId === loop.id;
                 const duration = selectedVideo?.durationSeconds ?? null;
                 const left = duration ? Math.max(0, Math.min(100, (loop.start / duration) * 100)) : 0;
                 const width = duration
@@ -1217,11 +1192,7 @@ export default function LibraryPage() {
                 return (
                   <div
                     key={loop.id}
-                    className={`mb-2.5 rounded-xl border p-3.5 transition ${
-                      playing
-                        ? 'border-Navbar bg-Navbar/[0.03]'
-                        : 'border-Separator bg-white hover:border-Borders'
-                    }`}
+                    className="mb-2.5 rounded-xl border border-Separator bg-white p-3.5 transition hover:border-Borders"
                     role="button"
                     tabIndex={0}
                     onClick={() => openLoopWorkspace(loop)}
@@ -1246,16 +1217,6 @@ export default function LibraryPage() {
                         />
                       </div>
                     )}
-                    <button
-                      className="rounded-lg border border-Navbar bg-Navbar px-2.5 py-1.5 text-[12.5px] font-medium text-Save transition hover:bg-Borders"
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        if (playing) stopLoop();
-                        else playLoop(loop);
-                      }}
-                    >
-                      {playing ? '■ Stop' : '▶ Play loop'}
-                    </button>
                   </div>
                 );
               })

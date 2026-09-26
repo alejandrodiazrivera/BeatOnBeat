@@ -1,6 +1,6 @@
 import Link from "next/link";
-import AppHeader from '@/components/AppHeader';
-import AppFooter from '@/components/AppFooter';
+import AppHeader from '@/components/Header/AppHeader';
+import AppFooter from '@/components/Header/AppFooter';
 
 export const metadata = {
   title: "ChoreoLab — Learn choreography one loop at a time",
@@ -89,19 +89,46 @@ export default function LandingPage() {
                 </div>
               </div>
 
-              {/* Stat cards */}
-              <div className="grid gap-3 border-t border-Separator px-4 py-3 md:grid-cols-3">
-                <div className="ds-stat">
-                  <div className="ds-stat__label">Loop Status</div>
-                  <div className="ds-stat__value">Looping section</div>
-                </div>
-                <div className="ds-stat">
-                  <div className="ds-stat__label">Loop In</div>
-                  <div className="ds-stat__value tabular">00:42</div>
-                </div>
-                <div className="ds-stat">
-                  <div className="ds-stat__label">Loop Out</div>
-                  <div className="ds-stat__value tabular">01:18</div>
+              {/* Timeline preview (marketing only) */}
+              <div className="border-t border-Separator px-4 py-4">
+                <div className="rounded-2xl border border-Separator bg-white p-4">
+                  <div className="flex items-end justify-between gap-4">
+                    <div className="text-[11px] font-bold uppercase tracking-[0.1em] text-TextXl">Timeline</div>
+                    <div className="text-right text-[13px] text-TextL tabular-nums">
+                      <span className="font-semibold text-Text">00:56</span> / 03:10
+                    </div>
+                  </div>
+
+                  <div className="relative mt-6">
+                    <div className="relative h-2 rounded-full bg-Separator">
+                      <div className="absolute inset-y-0 left-0 rounded-full bg-Navbar/20" style={{ width: '29.5%' }} />
+                      <div className="absolute inset-y-[-3px] rounded-[4px] bg-Navbar/8" style={{ left: '22%', width: '19%' }} />
+
+                      <div className="absolute top-[-10px] h-7 w-[9px] -translate-x-1/2" style={{ left: '22%' }}>
+                        <div className="absolute left-1/2 top-0 h-full w-[2px] -translate-x-1/2 bg-Navbar" />
+                        <div className="absolute left-1/2 top-0 h-[2px] w-[9px] -translate-x-1/2 bg-Navbar" />
+                        <div className="absolute bottom-0 left-1/2 h-[2px] w-[9px] -translate-x-1/2 bg-Navbar" />
+                      </div>
+
+                      <div className="absolute top-[-10px] h-7 w-[9px] -translate-x-1/2" style={{ left: '41%' }}>
+                        <div className="absolute left-1/2 top-0 h-full w-[2px] -translate-x-1/2 bg-Navbar" />
+                        <div className="absolute left-1/2 top-0 h-[2px] w-[9px] -translate-x-1/2 bg-Navbar" />
+                        <div className="absolute bottom-0 left-1/2 h-[2px] w-[9px] -translate-x-1/2 bg-Navbar" />
+                      </div>
+
+                      <div className="absolute top-[-7px] h-[22px] w-[2px] -translate-x-1/2 bg-Navbar" style={{ left: '29.5%' }}>
+                        <div className="absolute left-1/2 top-[-5px] h-[10px] w-[10px] -translate-x-1/2 rounded-full bg-Navbar shadow-[0_0_0_2px_#fff]" />
+                      </div>
+                    </div>
+
+                    <div className="relative mt-2 h-4 text-[10px] text-TextXl tabular-nums">
+                      <span className="absolute left-0 -translate-x-0">00:00</span>
+                      <span className="absolute left-1/4 -translate-x-1/2">00:47</span>
+                      <span className="absolute left-1/2 -translate-x-1/2">01:35</span>
+                      <span className="absolute left-3/4 -translate-x-1/2">02:22</span>
+                      <span className="absolute right-0 translate-x-0">03:10</span>
+                    </div>
+                  </div>
                 </div>
               </div>
 

@@ -22,7 +22,7 @@ import VideoControls from '../components/VideoControls';
 import MetronomeControls from '../components/MetronomeControls';
 import CueForm from '../components/CueForm';
 import CueList from '../components/CueList';
-import Header from '../components/Header/Header';
+import Header from '../components/Header/Header1';
 import Footer from '../components/Footer/Footer';
 
 export default function Home() {

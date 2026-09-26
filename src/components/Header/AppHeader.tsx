@@ -25,20 +25,40 @@ export default function AppHeader() {
 
         <div className="flex items-center gap-2 sm:gap-4">
           <Link
-            href="/about"
+            href="/"
             className="hidden text-sm text-TextXl transition-colors hover:text-white sm:inline"
           >
-            About
+            Home
           </Link>
+          <Link
+            href="/product"
+            className="hidden text-sm text-TextXl transition-colors hover:text-white sm:inline"
+          >
+            Product
+          </Link>
+          <Link
+            href="/testimony"
+            className="hidden text-sm text-TextXl transition-colors hover:text-white sm:inline"
+          >
+            Testimony
+          </Link>
+
+
           <Link
             href="/library"
             className="hidden text-sm text-TextXl transition-colors hover:text-white sm:inline"
           >
             Library
           </Link>
+          <Link
+            href="/about"
+            className="hidden text-sm text-TextXl transition-colors hover:text-white sm:inline"
+          >
+            About
+          </Link>
           {showOpenApp && (
             <Link
-              href="/loop"
+              href="/library"
               className="ds-btn-primary bg-white text-Navbar hover:bg-LayersToggle hover:text-Navbar"
             >
               Open app

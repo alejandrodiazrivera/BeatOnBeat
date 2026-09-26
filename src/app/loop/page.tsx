@@ -2,7 +2,7 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { PanelRightClose } from 'lucide-react';
-import { useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { CuePoint } from '../../types/types';
 import { extractVideoId } from '../../utils/youtubeUtils';
 
@@ -21,8 +21,8 @@ import VideoPlayer from '../../components/VideoPlayer';
 import VideoControls from '../../components/VideoControls';
 import CueForm from '../../components/CueForm';
 import CueList from '../../components/CueList';
-import AppHeader from '../../components/AppHeader';
-import AppFooter from '../../components/AppFooter';
+import AppHeader from '../../components/Header/AppHeader';
+import AppFooter from '../../components/Header/AppFooter';
 
 const formatPracticeTime = (timeInSeconds: number): string => {
   const minutes = Math.floor(timeInSeconds / 60).toString().padStart(2, '0');
@@ -31,6 +31,7 @@ const formatPracticeTime = (timeInSeconds: number): string => {
 };
 
 export default function LoopPage() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -56,6 +57,7 @@ export default function LoopPage() {
   const [isSaveLoopDialogOpen, setIsSaveLoopDialogOpen] = useState(false);
   const [isSavedLoopsOpen, setIsSavedLoopsOpen] = useState(false);
   const [libraryVideoId, setLibraryVideoId] = useState<string | null>(null);
+  const openedFromLibrary = Boolean(searchParams.get('libraryVideoId'));
   const currentTimeRef = useRef(0);
   const videoFileInputRef = useRef<HTMLInputElement>(null);
   const resumeAfterSaveRef = useRef(false);
@@ -388,6 +390,14 @@ export default function LoopPage() {
     setIsPlaying(false);
   }, []);
 
+  const handleBackToLibrary = useCallback(() => {
+    if (typeof window !== 'undefined' && window.history.length > 1) {
+      router.back();
+      return;
+    }
+    router.push('/library');
+  }, [router]);
+
   // Memoized time update handler to prevent infinite re-renders
   const handleTimeUpdate = useCallback((time: number) => {
     currentTimeRef.current = time;
@@ -568,6 +578,15 @@ export default function LoopPage() {
       <main className="px-4 pt-8">
         <div className="mx-auto max-w-[1220px] pb-24 pt-7">
           <div className="mb-5">
+            {openedFromLibrary && (
+              <button
+                type="button"
+                onClick={handleBackToLibrary}
+                className="mb-3 inline-flex items-center gap-2 rounded-lg border border-Borders bg-white px-3 py-1.5 text-sm font-medium text-Text transition hover:border-Navbar hover:text-Title"
+              >
+                ← Back to Library
+              </button>
+            )}
             <h1 className="text-[22px] font-semibold text-Title">Loop Editor</h1>
           </div>
 

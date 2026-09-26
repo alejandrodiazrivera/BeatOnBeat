@@ -25,6 +25,9 @@ export default function AppFooter() {
           <Link href="/library" className="transition-colors hover:text-Text">
             Library
           </Link>
+          <Link href="/about" className="transition-colors hover:text-Text">
+            About
+          </Link>
         </nav>
 
         <p className="text-xs text-TextL">Client-side · no account required</p>
