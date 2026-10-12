@@ -403,8 +403,11 @@ export default function LibraryPage() {
         setVideos((videoResult.data as VideoRow[]).map(mapVideoRow));
         setLoops((loopResult.data as LoopRow[]).map(mapLoopRow));
       } catch (error) {
-        console.error('Failed to load communal library:', error);
-        if (mounted) setLoadingError('Could not reach the library.');
+        const e = error as { message?: string; code?: string; details?: string; hint?: string };
+        console.error('Failed to load communal library:', e?.message, e?.code, e?.details, e?.hint);
+        if (mounted) {
+          setLoadingError(e?.message ? `Could not reach the library: ${e.message}` : 'Could not reach the library.');
+        }
       } finally {
         if (mounted) setLoading(false);
       }

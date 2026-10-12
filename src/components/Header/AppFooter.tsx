@@ -15,15 +15,16 @@ export default function AppFooter() {
             height={28}
             className="h-7 w-7 rounded-md object-contain"
           />
-          <span className="text-sm font-medium">ChoreoLab</span>
+          <span className="text-sm font-medium">© 2026 ChoreoLab. All rights reserved.</span>
+          <span className="text-sm font-medium">CVR.nr: 12345678</span>
         </div>
 
         <nav className="flex items-center gap-6 text-sm text-TextL">
-          <Link href="/loop" className="transition-colors hover:text-Text">
-            Loop Editor
+          <Link href="/product" className="transition-colors hover:text-Text">
+            Product
           </Link>
-          <Link href="/library" className="transition-colors hover:text-Text">
-            Library
+          <Link href="/testimony" className="transition-colors hover:text-Text">
+            Case Study
           </Link>
           <Link href="/about" className="transition-colors hover:text-Text">
             About
